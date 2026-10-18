@@ -14,9 +14,15 @@
 ### Startup and shutdown sounds
 
 - Two optional sounds, None by default, picked like the others in Settings.
-- Startup plays once you're in game with HCrafter loaded: after you log in, or a few seconds after you load HCrafter in game.
-- Shutdown plays when you log out, or when HCrafter unloads while you're logged in.
+- Startup plays as HCrafter loads while you're in game, on the first frame after you log in, and when `/hcrafter` shows the recipe book.
+- Shutdown plays when you log out, or when HCrafter unloads while you're logged in. It uses your character's own choice even though Ashita switches to its default settings at logout.
 - [Inference] Closing the game without logging out may cut the shutdown sound short, since the game exits right away.
+
+### Right-click menu
+
+- The right-click menu and the sound list are bigger: their text is the size of recipe names, with more room around and between lines.
+- On Ashita builds with imgui before 1.92, which draw a font only at the size it was loaded, the menu's text is scaled to that size instead.
+- A long sound list scrolls instead of running off the screen.
 
 ### Volume
 

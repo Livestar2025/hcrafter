@@ -112,7 +112,7 @@ The alert only shows and sounds. It never presses your macro and never sends any
 - A banner for a break that lists what you lost. Breaks have no sound unless you pick one.
 - A toast when the recipe you repeat stops giving skill-ups.
 - Every skill-up can get a small banner too. It is off by default.
-- An optional startup sound once you're in game with HCrafter loaded, and an optional shutdown sound when you log out or unload HCrafter. Both are None by default. Closing the game without logging out may cut the shutdown sound short.
+- An optional startup sound when HCrafter loads while you're in game, when you log in, and when `/hcrafter` shows the recipe book, and an optional shutdown sound when you log out or unload HCrafter. Both are None by default. Closing the game without logging out may cut the shutdown sound short.
 
 Each one can be turned off in Settings. Each alert also has its own sound: one of the game's own sound effects, one of HCrafter's ten sounds, one of your own `.wav` files, or None. Press Play to hear it. "Play sounds" turns every sound off, and Volume sets the level of all of them from 0 to 150 percent.
 

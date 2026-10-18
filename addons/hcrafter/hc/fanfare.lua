@@ -41,14 +41,14 @@ function fanfare.Volume()
     return sounds.Volume(type(ref) == 'table' and ref[1] or nil)
 end
 
--- play a sound for an alert at the set volume. a game sound that isn't
--- there, or can't be read, plays HCrafter's own sound for that alert.
--- returns true when something played.
-function fanfare.PlayChoice(key, choice)
+-- play a sound for an alert at the set volume (or the one given). a game
+-- sound that isn't there, or can't be read, plays HCrafter's own sound for
+-- that alert. returns true when something played.
+function fanfare.PlayChoice(key, choice, volume)
     if type(choice) ~= 'string' or choice == '' then
         return false
     end
-    local volume = fanfare.Volume()
+    volume = volume ~= nil and sounds.Volume(volume) or fanfare.Volume()
     if sounds.Play(choice, volume) then
         return true
     end

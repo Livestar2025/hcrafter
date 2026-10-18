@@ -85,17 +85,36 @@ local function Measure(s, size, bold)
     return w
 end
 
+-- true on imgui 1.92 and later (Ashita 4.3), where a font can be pushed at
+-- any size. older imgui (Ashita 4.16) draws a font at the size it was loaded.
+function text.DynamicFonts()
+    if text.dynamic == nil then
+        local ok, base = pcall(function() return imgui.GetStyle().FontSizeBase end)
+        text.dynamic = ok and type(base) == 'number'
+    end
+    return text.dynamic
+end
+
 -- push the game font for imgui's own widgets, such as the right-click
 -- menu, at a pixel size before the Text size setting, so they match
--- HCrafter's text. returns true when it was pushed: call guard.PopFont()
--- after. with Tahoma off or missing, nothing is pushed and imgui's own font
--- stays.
+-- HCrafter's text. call it right after the window or popup begins. returns
+-- true when it was pushed: call guard.PopFont() after. with Tahoma off or
+-- missing, nothing is pushed and imgui's own font stays.
 function text.PushWidgetFont(size)
     local font = FontFor(false)
     if font == nil then
         return false
     end
-    return (pcall(guard.PushFont, font, size * text.scale))
+    size = size * text.scale
+    if text.DynamicFonts() then
+        return (pcall(guard.PushFont, font, size))
+    end
+    -- older imgui ignores the size, so the window's text is scaled instead
+    local pushed = pcall(guard.PushFont, font)
+    if pushed then
+        pcall(function() imgui.SetWindowFontScale(size / text.bakeSize) end)
+    end
+    return pushed
 end
 
 -- the height a string at this pixel size takes with the Text size setting

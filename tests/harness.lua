@@ -591,6 +591,7 @@ function im.PushFont(font, size)
     S.lastFontSize = size
 end
 function im.PopFont() S.fonts = S.fonts - 1; assert(S.fonts >= 0, 'PopFont underflow') end
+function im.SetWindowFontScale(scale) assert(finite(scale) and scale > 0, 'SetWindowFontScale'); S.windowFontScale = scale end
 function im.GetIO() return { DisplaySize = S.display } end
 function im.GetMousePos()
     if S.mouse ~= nil then return S.mouse[1], S.mouse[2] end
@@ -2937,11 +2938,20 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
     require('hc.menu').Request('book', { itemId = 12987, recipes = { sabots } })
     frame(false)
     f, why = frame(true)
-    check(why == nil and #f.popupShown == 1 and S.lastFontSize == 13, ('the right-click menu pushes the game font at 13 pixels (%s)'):format(tostring(S.lastFontSize)))
+    check(why == nil and #f.popupShown == 1 and S.lastFontSize == 14, ('the right-click menu pushes the game font at 14 pixels, the size of recipe names (%s)'):format(tostring(S.lastFontSize)))
     S.lastFontSize = nil
     S.lineH = 36
     f, why = frame(true)
-    check(why == nil and S.lastFontSize == 26, ('with a 36 pixel Ashita font it pushes it at 26 (%s)'):format(tostring(S.lastFontSize)))
+    check(why == nil and S.lastFontSize == 28, ('with a 36 pixel Ashita font it pushes it at 28 (%s)'):format(tostring(S.lastFontSize)))
+    -- older imgui (Ashita 4.16) draws a font at its loaded size: the menu's
+    -- text is scaled instead
+    local textMod = require('hc.text')
+    textMod.dynamic = false
+    S.lastFontSize, S.windowFontScale = nil, nil
+    f, why = frame(true)
+    check(why == nil and S.lastFontSize == nil and S.windowFontScale ~= nil and math.abs(S.windowFontScale - 28 / textMod.bakeSize) < 0.001,
+        ('on older imgui the menu pushes the game font and scales it to 28 pixels (%s)'):format(tostring(S.windowFontScale)))
+    textMod.dynamic = nil
     S.lineH = nil
     S.openPopups = { }
     frame(false)
@@ -3382,20 +3392,23 @@ print("== the game's own sounds")
     check(config.sounds.startup[1] == '' and config.sounds.shutdown[1] == '', 'startup and shutdown play nothing by default')
     config.sounds.startup[1] = 'chimes.wav'
     config.sounds.shutdown[1] = 'dingdong.wav'
+    frame(false)
     sounds = { }
+    -- Ashita's settings library may switch to its default settings before
+    -- HCrafter hears of the logout: the character's own choice still plays
+    config.sounds.shutdown[1] = ''
     fire('packet_in', zoneOut(true))
-    check(#sounds == 1 and sounds[1]:find('dingdong.wav', 1, true) ~= nil, 'logging out plays the shutdown sound')
+    check(#sounds == 1 and sounds[1]:find('dingdong.wav', 1, true) ~= nil, 'logging out plays the shutdown sound from your own settings')
+    config.sounds.shutdown[1] = 'dingdong.wav'
     G.entity = false
     frame(false)
     G.entity = true
     sounds = { }
     fire('packet_in', zoneIn('Alpha', 4242))
+    check(#sounds == 0, 'the startup sound waits for the frame after the login')
+    frame(false)
+    check(#sounds == 1 and sounds[1]:find('chimes.wav', 1, true) ~= nil, 'the first frame after you log in plays the startup sound, without waiting for your bags')
     fire('packet_in', inventoryFinish)
-    frame(false)
-    check(#sounds == 0, 'no startup sound until your bags have loaded')
-    advance(3)
-    frame(false)
-    check(#sounds == 1 and sounds[1]:find('chimes.wav', 1, true) ~= nil, 'once you\'re in game the startup sound plays')
     advance(3)
     frame(false)
     fire('packet_in', zoneIn('Alpha', 4242))
@@ -3404,10 +3417,22 @@ print("== the game's own sounds")
     frame(false)
     check(#sounds == 1, 'it plays once, not again when you zone')
     sounds = { }
+    fire('load')
+    frame(false)
+    check(#sounds == 1 and sounds[1]:find('chimes.wav', 1, true) ~= nil, 'loading HCrafter while you\'re in game plays the startup sound at once, and once')
+    sounds = { }
+    config.book.visible[1] = false
+    command('/hcrafter')
+    check(config.book.visible[1] == true and #sounds == 1 and sounds[1]:find('chimes.wav', 1, true) ~= nil, '/hcrafter showing the book plays the startup sound')
+    command('/hcrafter')
+    check(config.book.visible[1] == false and #sounds == 1, 'hiding it plays nothing')
+    command('/hcrafter')
+    sounds = { }
     fire('unload')
     check(#sounds == 1 and sounds[1]:find('dingdong.wav', 1, true) ~= nil, 'unloading HCrafter while logged in plays the shutdown sound')
     config.sounds.startup[1] = ''
     config.sounds.shutdown[1] = ''
+    frame(false)
     sounds = { }
     fire('packet_in', zoneOut(true))
     G.entity = false

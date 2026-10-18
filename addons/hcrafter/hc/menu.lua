@@ -50,6 +50,17 @@ local function PopStyle()
     guard.PopStyleColor(10)
 end
 
+-- room around and between the menu's lines, in HCrafter's own scale
+local function PushSpacing()
+    guard.PushStyleVar(ImGuiStyleVar_WindowPadding, { ui.Px(12), ui.Px(9) })
+    guard.PushStyleVar(ImGuiStyleVar_ItemSpacing, { ui.Px(8), ui.Px(7) })
+    guard.PushStyleVar(ImGuiStyleVar_FramePadding, { ui.Px(7), ui.Px(4) })
+end
+
+local function PopSpacing()
+    guard.PopStyleVar(3)
+end
+
 local function SavePrice(itemId)
     local typed = priceText[1]:gsub('%s', '')
     local ok, why
@@ -82,6 +93,7 @@ function menu.Draw(windowKey)
     end
 
     PushStyle()
+    PushSpacing()
     local shown = current[windowKey]
     if shown ~= nil and shown.mode == 'sound' then
         -- a long list of sounds scrolls instead of running off the screen
@@ -97,7 +109,7 @@ function menu.Draw(windowKey)
     end
     if guard.BeginPopup(id) then
         -- the menu's text in the same font and size as the rest of HCrafter
-        local fontPushed = text.PushWidgetFont(ui.Px(13))
+        local fontPushed = text.PushWidgetFont(ui.Px(14))
         local open = current[windowKey]
         if open == nil then
             imgui.CloseCurrentPopup()
@@ -174,6 +186,7 @@ function menu.Draw(windowKey)
         end
         guard.EndPopup()
     end
+    PopSpacing()
     PopStyle()
 end
 

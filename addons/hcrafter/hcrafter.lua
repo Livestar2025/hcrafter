@@ -274,14 +274,25 @@ session.OnChange(function(name)
     history.Load(name)
 end)
 
--- the startup sound plays once you're in game with HCrafter loaded, and
--- again after each new login. the shutdown sound plays when you log out,
--- or when HCrafter unloads while you're logged in.
-local startupDue = true
+-- the startup sound plays as HCrafter loads while you're in game, on the
+-- first frame after you log in, and when /hcrafter shows the recipe book.
+-- the shutdown sound plays when you log out, or when HCrafter unloads while
+-- you're logged in.
+local startupNext = false
+-- the shutdown sound from your own character's settings, kept every frame:
+-- at logout Ashita's settings library may switch to its default settings
+-- before HCrafter hears of the logout
+local farewell = nil
 session.OnChange(function(name, old)
     if name == nil and old ~= nil then
-        fanfare.Sound('shutdown')
-        startupDue = true
+        if farewell ~= nil and farewell.on then
+            fanfare.PlayChoice('shutdown', farewell.choice, farewell.volume)
+        end
+        farewell = nil
+        startupNext = false
+    elseif name ~= nil and old == nil then
+        -- the next frame, once every handler has seen the login
+        startupNext = true
     end
 end)
 
@@ -660,6 +671,12 @@ ashita.events.register('load', 'hcrafter_load', function()
         end
     end
     session.OnLoad()
+    -- loaded while you're in game: the startup sound plays right away, and
+    -- only once
+    if session.name ~= nil then
+        startupNext = false
+        fanfare.Sound('startup')
+    end
     stock.LoadOthers()
     prices.Load(true)
 end)
@@ -763,6 +780,9 @@ ashita.events.register('command', 'hcrafter_command', function(e)
 
     if verb == nil then
         config.book.visible[1] = not config.book.visible[1]
+        if config.book.visible[1] then
+            fanfare.Sound('startup')
+        end
     elseif verb == 'plan' or verb == 'planner' then
         config.planner.visible[1] = not config.planner.visible[1]
     elseif verb == 'list' then
@@ -843,9 +863,17 @@ ashita.events.register('d3d_present', 'hcrafter_present', function()
     -- at most one game sound turned into a .wav file a frame. a file that
     -- can't be made never stops the frame.
     pcall(sounds.Tick)
-    if startupDue and session.IsReady() then
-        startupDue = false
+    if startupNext then
+        startupNext = false
         fanfare.Sound('startup')
+    end
+    if session.name ~= nil then
+        local ref = config.sounds.shutdown
+        farewell = {
+            on = config.fanfare.sound[1] == true,
+            choice = type(ref) == 'table' and ref[1] or '',
+            volume = fanfare.Volume(),
+        }
     end
 
     -- settings no longer hold the history, so a save here is small
