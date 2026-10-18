@@ -843,7 +843,7 @@ local chunk = assert(loadfile(ADDON .. '/hcrafter.lua'))
 local okLoad, errLoad = pcall(chunk)
 check(okLoad, 'hcrafter.lua loads' .. (okLoad and '' or (': ' .. tostring(errLoad))))
 if not okLoad then cleanup() os.exit(1) end
-check(addon.name == 'hcrafter' and addon.version == '1.2.1', 'addon metadata set: hcrafter 1.2.1')
+check(addon.name == 'hcrafter' and addon.version == '1.3.0', 'addon metadata set: hcrafter 1.3.0')
 
 local config = settingsStub.current
 local defaults = settingsStub.defaults
@@ -2825,8 +2825,9 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
     config.ready.every = nil
     config.sounds = nil
     settingsStub.callbacks[1](config)
-    check(config.look.matchAshita[1] == true and config.ready.every[1] == 6 and config.sounds.done[1] == 'ready.wav'
-        and config.sounds.short[1] == 'alert.wav' and config.sounds.skillUp[1] == '', 'settings from 1.1.0 get the font switch, the alert count and the sounds')
+    check(config.look.matchAshita[1] == true and config.ready.every[1] == 6 and config.sounds.done[1] == 'game:se008/se008229'
+        and config.sounds.short[1] == 'game:se035/se035131' and config.sounds.skillUp[1] == 'game:se044/se044177' and config.sounds.breaks[1] == ''
+        and config.soundVolume[1] == 100, 'settings from 1.1.0 get the font switch, the alert count, the game\'s sounds and the volume')
 
     -- Ashita's font size sets the scale
     frame(false)
@@ -2883,8 +2884,11 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
     -- the sound for each alert
     sounds = { }
     f, why = frame(true)
-    check(why == nil and hasText(f, 'Synths done', 'hcrafter.book') and hasText(f, 'Chime', 'hcrafter.book') and hasText(f, 'Alert', 'hcrafter.book'),
-        'Settings lists each alert with its sound')
+    check(why == nil and hasText(f, 'Synths done', 'hcrafter.book') and hasTextLike(f, 'FFXI synths done (missing)', 'hcrafter.book') ~= nil
+        and hasTextLike(f, 'FFXI level-up (missing)', 'hcrafter.book') ~= nil and hasTextLike(f, 'find your game', 'hcrafter.book') ~= nil,
+        'Settings lists each alert with its sound, marks the game\'s sounds missing with no game folder, and says why')
+    config.sounds.done[1] = 'ready.wav'
+    config.sounds.short[1] = 'alert.wav'
     S.click = { 'book.sound.done' }
     frame(false)
     f, why = frame(true)
@@ -3077,7 +3081,7 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
     config.version = 1
     config.sounds.breaks[1] = 'break.wav'
     settingsStub.callbacks[1](config)
-    check(config.version == 2 and config.sounds.breaks[1] == '', 'settings from 1.2.0 stop playing a sound on breaks')
+    check(config.version == 3 and config.sounds.breaks[1] == '', 'settings from 1.2.0 stop playing a sound on breaks')
     config.sounds.breaks[1] = 'break.wav'
     settingsStub.callbacks[1](config)
     check(config.sounds.breaks[1] == 'break.wav', 'a break sound picked after that stays')
@@ -3087,7 +3091,7 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
     config.sounds = nil
     config.ready.sound = T{ false }
     settingsStub.callbacks[1](config)
-    check(config.sounds.done[1] == '' and config.sounds.levelUp[1] == 'levelup.wav', 'the old "with a sound" off becomes None for the alert')
+    check(config.sounds.done[1] == '' and config.sounds.levelUp[1] == 'game:se043/se043006', 'the old "with a sound" off becomes None for the alert')
     config.sounds.done[1] = 'ready.wav'
     config.ready.sound = nil
 
@@ -3136,6 +3140,295 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
 end)()
 
 ---------------------------------------------------------------------------
+print("== the game's own sounds")
+;(function()
+    local spw = require('hc.spw')
+    local wave = require('hc.wave')
+    local soundsMod = require('hc.sounds')
+    local fanfareMod = require('hc.fanfare')
+    -- SeWave files built the same way as the reference files vgmstream
+    -- decoded: the hashes below are vgmstream's output for these bytes
+    local FILTERS = { 0, 1, 2, 3, 4, 6, 7 }
+    local function U32(v) return string.char(v % 256, math.floor(v / 256) % 256, math.floor(v / 65536) % 256, math.floor(v / 16777216) % 256) end
+    local function MakeSpw(codec, ch, count, blockAlign, sizeOff)
+        local payload = { }
+        if codec == 0 then
+            for fr = 0, count - 1 do
+                for c = 0, ch - 1 do
+                    payload[#payload + 1] = string.char(FILTERS[(fr + c) % 7 + 1] * 16 + (fr * 3 + c) % 16)
+                    for j = 0, blockAlign / 2 - 1 do
+                        payload[#payload + 1] = string.char((fr * 29 + c * 101 + j * 7 + 3) % 256)
+                    end
+                end
+            end
+        else
+            for smp = 0, count - 1 do
+                for c = 0, ch - 1 do
+                    local v = ((smp * 37 + c * 1000) % 2000 - 1000) * 13
+                    if v < 0 then v = v + 65536 end
+                    payload[#payload + 1] = string.char(v % 256, math.floor(v / 256))
+                end
+            end
+        end
+        local body = table.concat(payload)
+        local size = 0x30 + #body + (sizeOff or 0)
+        return 'SeWave\0\0' .. U32(size) .. U32(codec) .. U32(7) .. U32(count) .. U32(0) .. U32(40000) .. U32(8000) .. U32(0x30)
+            .. '\0\0' .. string.char(ch, codec == 1 and 1 or 16, blockAlign) .. '\0\0\0' .. body
+    end
+    local function Hash(sound)
+        local acc = 0
+        for i = 1, sound.samples do
+            for c = 1, sound.channels do
+                acc = (acc * 31 + (sound[c][i] + 32768)) % 2147483647
+            end
+        end
+        return acc
+    end
+
+    -- the decoder
+    for _, case in ipairs({
+        { 'PS-ADPCM mono', 0, 1, 40, 16, 640, 1686257036 },
+        { 'PS-ADPCM stereo', 0, 2, 40, 16, 640, 1960583072 },
+        { 'PCM mono', 1, 1, 300, 1, 300, 2069657294 },
+        { 'PCM stereo', 1, 2, 300, 1, 300, 1983374577 },
+    }) do
+        local sound, why = spw.Decode(MakeSpw(case[2], case[3], case[4], case[5]))
+        check(sound ~= nil and sound.rate == 48000 and sound.channels == case[3] and sound.samples == case[6] and Hash(sound) == case[7],
+            ('%s decodes sample for sample as vgmstream does (%s)'):format(case[1], tostring(why or Hash(sound))))
+    end
+    local adpcm = MakeSpw(0, 2, 40, 16)
+    local atrac = adpcm:sub(1, 12) .. U32(3) .. adpcm:sub(17)
+    local damaged = MakeSpw(0, 2, 40, 16, 4)
+    check(spw.Decode(atrac) == nil and spw.Decode(damaged) == nil, 'an ATRAC3 file and a file whose size disagrees with its header are left alone')
+    check(spw.Decode('SeWave') == nil and spw.Decode(nil) == nil and spw.Decode(('x'):rep(100)) == nil and spw.Decode(adpcm:sub(1, 200)) == nil,
+        'junk and a cut-off file are left alone')
+    check(spw.Decode(MakeSpw(1, 1, 480001, 1)) == nil and spw.Decode(MakeSpw(1, 1, 480000, 1)) ~= nil, 'a sound longer than 10 seconds is left alone')
+
+    -- .wav files
+    local pcm = spw.Decode(MakeSpw(1, 2, 300, 1))
+    local w1 = wave.Write(pcm, 1)
+    local back = wave.Read(w1)
+    check(#w1 == 44 + 300 * 2 * 2 and back ~= nil and back.rate == 48000 and back.channels == 2 and Hash(back) == 1983374577,
+        'a .wav file written and read back keeps every sample')
+    local half, loud = wave.Read(wave.Write(pcm, 0.5)), wave.Read(wave.Write(pcm, 3))
+    local loudMin, loudMax = 0, 0
+    for i = 1, loud.samples do
+        loudMin, loudMax = math.min(loudMin, loud[1][i]), math.max(loudMax, loud[1][i])
+    end
+    check(half[1][1] == -6500 and half[2][2] == 241 and loud[1][1] == -32768 and loudMax == 32767 and loudMin == -32768 and loud[1][300] == 2457,
+        'volume scales every sample and keeps loud ones in range: ' .. tostring(half[1][1]) .. ' ' .. tostring(loudMax))
+    local eightBit = w1:sub(1, 34) .. string.char(8, 0) .. w1:sub(37)
+    check(wave.Read(eightBit) == nil and wave.Read('RIFF') == nil and wave.Read(nil) == nil, 'a .wav file that isn\'t 16-bit PCM is left alone')
+
+    -- no game folder: HCrafter's own sounds stand in
+    local seRoot = TMP .. '/SquareEnix/FINAL FANTASY XI/sound/win/se'
+    local cache = TMP .. '/config/addons/hcrafter/sounds'
+    local function Put(id, data)
+        os.execute('mkdir -p ' .. quote(seRoot .. '/' .. id:match('^(se%d+)/')))
+        local file = realOpen(seRoot .. '/' .. id .. '.spw', 'wb')
+        file:write(data)
+        file:close()
+    end
+    local function ReadFile(path)
+        local file = realOpen(path, 'rb')
+        if file == nil then return nil end
+        local data = file:read('*a')
+        file:close()
+        return data
+    end
+    soundsMod.Refresh()
+    local gameListed = false
+    for _, option in ipairs(soundsMod.Options()) do
+        if option.group == 'game' then gameListed = true end
+    end
+    check(soundsMod.GameFolder() == nil and not gameListed, 'with no game folder, the lists leave the game\'s sounds out')
+    sounds = { }
+    config.fanfare.sound[1] = true
+    config.soundVolume[1] = 100
+    config.sounds.levelUp[1] = 'game:se043/se043006'
+    check(fanfareMod.Sound('levelUp') and #sounds == 1 and sounds[1]:find('levelup.wav', 1, true) ~= nil,
+        'a game sound with no game folder plays HCrafter\'s own level-up sound instead')
+
+    -- the game folder where HorizonXI puts the game
+    for _, sound in ipairs(soundsMod.game) do
+        if sound.id == 'se000/se000026' then
+            Put(sound.id, atrac)
+        elseif sound.id == 'se000/se000027' then
+            Put(sound.id, damaged)
+        else
+            Put(sound.id, adpcm)
+        end
+    end
+    soundsMod.Refresh()
+    local folder = soundsMod.GameFolder()
+    check(folder ~= nil and folder:find('SquareEnix\\FINAL FANTASY XI\\sound\\win\\se\\', 1, true) ~= nil, 'the game\'s sound folder is found inside Ashita\'s folder: ' .. tostring(folder))
+    local options = soundsMod.Options()
+    local extra = nil
+    for _, option in ipairs(options) do
+        if option.file == 'game:se000/se000026' then extra = option.label end
+    end
+    check(options[1].label == 'None' and options[2].file == 'game:se043/se043006' and options[2].label == 'FFXI level-up'
+        and options[9].label == 'FFXI out of a material' and extra == 'FFXI 000-026' and options[#soundsMod.game + 2].file == 'ready.wav',
+        'the lists show None, the game\'s sounds by name, then HCrafter\'s')
+
+    -- playing one makes a .wav file once
+    sounds = { }
+    check(fanfareMod.Sound('levelUp') and #sounds == 1 and sounds[1]:find('se043006-v100.wav', 1, true) ~= nil, 'a game sound plays from a .wav file HCrafter made')
+    local made = wave.Read(ReadFile(cache .. '/se043006-v100.wav'))
+    check(made ~= nil and Hash(made) == 1960583072, 'the file holds the game\'s sound sample for sample')
+    os.remove(seRoot .. '/se043/se043006.spw')
+    soundsMod.Refresh()
+    check(not soundsMod.Exists('game:se043/se043006'), 'a game file that is gone counts as missing')
+    Put('se043/se043006', adpcm)
+    soundsMod.Refresh()
+    local before = ReadFile(cache .. '/se043006-v100.wav')
+    local file = realOpen(cache .. '/se043006-v100.wav', 'ab')
+    file:write('X')
+    file:close()
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    check(#sounds == 1 and ReadFile(cache .. '/se043006-v100.wav') == before .. 'X', 'the next time it plays the file already made')
+
+    -- volume
+    config.soundVolume[1] = 50
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    local quiet = wave.Read(ReadFile(cache .. '/se043006-v50.wav'))
+    check(#sounds == 1 and sounds[1]:find('se043006-v50.wav', 1, true) ~= nil and quiet ~= nil and quiet[1][1] == math.floor(made[1][1] * 0.5 + 0.5),
+        'at volume 50 it plays a copy at half the level')
+    config.sounds.done[1] = 'ready.wav'
+    sounds = { }
+    fanfareMod.Sound('done')
+    local ownQuiet = wave.Read(ReadFile(cache .. '/own-ready-v50.wav'))
+    check(#sounds == 1 and sounds[1]:find('own-ready-v50.wav', 1, true) ~= nil and ownQuiet ~= nil, 'HCrafter\'s own sounds follow the volume too')
+    config.soundVolume[1] = 0
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    fanfareMod.Sound('done')
+    check(#sounds == 0, 'at volume 0 nothing plays')
+    check(soundsMod.Volume('x') == 100 and soundsMod.Volume(999) == 150 and soundsMod.Volume(-5) == 0 and soundsMod.Volume(0 / 0) == 100 and soundsMod.Volume(54.6) == 55,
+        'odd volume values are kept between 0 and 150')
+    config.soundVolume[1] = 100
+
+    -- a game sound HCrafter can't read plays HCrafter's own instead
+    config.sounds.hq[1] = 'game:se000/se000026'
+    config.sounds.hqBig[1] = 'game:se000/se000027'
+    sounds = { }
+    fanfareMod.Sound('hq')
+    fanfareMod.Sound('hqBig')
+    check(#sounds == 2 and sounds[1]:find('hq.wav', 1, true) ~= nil and sounds[2]:find('hq_big.wav', 1, true) ~= nil
+        and soundsMod.Unreadable('game:se000/se000026') and soundsMod.Unreadable('game:se000/se000027'),
+        'an ATRAC3 or damaged game file plays HCrafter\'s own sound and is marked unreadable')
+    config.book.tab[1] = 3
+    f, why = frame(true)
+    check(why == nil and hasTextLike(f, "FFXI 000-026 (can't read)", 'hcrafter.book') ~= nil and hasTextLike(f, 'Sounds marked FFXI', 'hcrafter.book') ~= nil,
+        'Settings marks the unreadable one and says where the game\'s sounds come from')
+
+    -- settings names that are not game sounds
+    sounds = { }
+    check(not soundsMod.Play('game:../evil') and not soundsMod.Play('game:se043/se043006/../x') and not soundsMod.Play('game:se0430/se043006')
+        and soundsMod.GameId('game:se043/se043006') == 'se043/se043006' and #sounds == 0, 'only the exact game sound shape plays, so a setting can\'t name a path')
+
+    -- the Settings controls
+    S.click = { 'book.volume.minus' }
+    frame(false)
+    check(config.soundVolume[1] == 90, 'the volume steps down by 10: ' .. tostring(config.soundVolume[1]))
+    S.click = { 'book.volume.plus' }
+    frame(false)
+    config.sounds.hq[1] = 'game:se041/se041147'
+    config.sounds.hqBig[1] = 'game:se037/se037067'
+    S.click = { 'book.sound.levelUp' }
+    frame(false)
+    f, why = frame(true)
+    local headers = table.concat(f.widgetTexts, '|')
+    check(why == nil and headers:find('FFXI sounds', 1, true) ~= nil and headers:find('HCrafter\'s sounds', 1, true) ~= nil
+        and hasLabel(f, 'FFXI level-up  (now)##hcrafter.sound') ~= nil, 'the list groups the game\'s sounds and HCrafter\'s, with the current one marked')
+    sounds = { }
+    S.select = 'FFXI skill-up##'
+    frame(false)
+    check(config.sounds.levelUp[1] == 'game:se044/se044177' and #sounds == 1 and sounds[1]:find('se044177-v100.wav', 1, true) ~= nil,
+        'picking a game sound sets it and plays it')
+    config.sounds.levelUp[1] = 'game:se043/se043006'
+    frame(false)
+
+    -- ready ahead of time, one file a frame
+    os.execute('rm -rf ' .. quote(cache))
+    soundsMod.Refresh()
+    while soundsMod.Tick() do end
+    os.execute('rm -rf ' .. quote(cache))
+    soundsMod.Warm('game:se008/se008229', 100)
+    soundsMod.Warm('game:se035/se035131', 100)
+    soundsMod.Warm('ready.wav', 100)
+    check(soundsMod.Waiting() == 2, 'only game sounds and sounds at another volume wait to be made')
+    frame(false)
+    check(soundsMod.Waiting() == 1 and ReadFile(cache .. '/se008229-v100.wav') ~= nil and ReadFile(cache .. '/se035131-v100.wav') == nil,
+        'each frame makes one file')
+    frame(false)
+    check(soundsMod.Waiting() == 0 and ReadFile(cache .. '/se035131-v100.wav') ~= nil, 'and the next frame the next one')
+
+    -- settings saved by 1.2.1
+    config.version = 2
+    config.sounds.levelUp[1] = 'levelup.wav'
+    config.sounds.skillUp[1] = ''
+    config.sounds.done[1] = 'chimes.wav'
+    settingsStub.callbacks[1](config)
+    check(config.version == 3 and config.sounds.levelUp[1] == 'game:se043/se043006' and config.sounds.skillUp[1] == 'game:se044/se044177'
+        and config.sounds.done[1] == 'chimes.wav' and config.sounds.breaks[1] == '',
+        'settings from 1.2.1 move sounds still at their old default to the game\'s, keep a sound you picked, and leave breaks quiet')
+    settingsStub.callbacks[1](config)
+    check(config.sounds.done[1] == 'chimes.wav', 'the move happens once')
+
+    -- startup and shutdown: optional, None by default
+    check(config.sounds.startup[1] == '' and config.sounds.shutdown[1] == '', 'startup and shutdown play nothing by default')
+    config.sounds.startup[1] = 'chimes.wav'
+    config.sounds.shutdown[1] = 'dingdong.wav'
+    sounds = { }
+    fire('packet_in', zoneOut(true))
+    check(#sounds == 1 and sounds[1]:find('dingdong.wav', 1, true) ~= nil, 'logging out plays the shutdown sound')
+    G.entity = false
+    frame(false)
+    G.entity = true
+    sounds = { }
+    fire('packet_in', zoneIn('Alpha', 4242))
+    fire('packet_in', inventoryFinish)
+    frame(false)
+    check(#sounds == 0, 'no startup sound until your bags have loaded')
+    advance(3)
+    frame(false)
+    check(#sounds == 1 and sounds[1]:find('chimes.wav', 1, true) ~= nil, 'once you\'re in game the startup sound plays')
+    advance(3)
+    frame(false)
+    fire('packet_in', zoneIn('Alpha', 4242))
+    fire('packet_in', inventoryFinish)
+    advance(3)
+    frame(false)
+    check(#sounds == 1, 'it plays once, not again when you zone')
+    sounds = { }
+    fire('unload')
+    check(#sounds == 1 and sounds[1]:find('dingdong.wav', 1, true) ~= nil, 'unloading HCrafter while logged in plays the shutdown sound')
+    config.sounds.startup[1] = ''
+    config.sounds.shutdown[1] = ''
+    sounds = { }
+    fire('packet_in', zoneOut(true))
+    G.entity = false
+    frame(false)
+    G.entity = true
+    fire('packet_in', zoneIn('Alpha', 4242))
+    fire('packet_in', inventoryFinish)
+    advance(3)
+    frame(false)
+    check(#sounds == 0, 'with None picked, logging out and in plays nothing')
+
+    -- back to no game folder for the checks that follow
+    os.execute('rm -rf ' .. quote(TMP .. '/SquareEnix'))
+    os.execute('rm -rf ' .. quote(cache))
+    soundsMod.Refresh()
+    config.sounds.done[1] = 'game:se008/se008229'
+    config.book.tab[1] = 1
+    fanfare.Clear()
+    frame(false)
+end)()
+
 print('== planner against a brute-force check, every recipe, everything made')
 local function makeAll(id)
     local options = recipes.Options(id)

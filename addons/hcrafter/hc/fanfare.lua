@@ -1,8 +1,8 @@
 -- fanfare: short banners over the game for level-ups, skill-ups, HQs and
 -- breaks, plus toasts for the alert after your macro, each with the sound
--- picked for it in Settings. drawn on the foreground list so no window gets
--- focus. the sounds in sounds\ were made for HCrafter (see
--- sounds\README.txt). part of HCrafter, GPL-3.0.
+-- picked for it in Settings: one of the game's own sounds, read from your
+-- game folder, or one of HCrafter's (see sounds\README.txt). drawn on the
+-- foreground list so no window gets focus. part of HCrafter, GPL-3.0.
 local imgui = require('imgui')
 local theme = require('hc.theme')
 local text = require('hc.text')
@@ -26,9 +26,42 @@ local Px = ui.Px
 local banners = { }
 local toasts = { }
 
+-- what plays for an alert when its game sound can't be: HCrafter's own
+-- sound for that alert
+fanfare.fallback = {
+    levelUp = 'levelup.wav', hq = 'hq.wav', hqBig = 'hq_big.wav', breaks = 'break.wav',
+    skillUp = 'blip.wav', noMore = 'bell.wav', done = 'ready.wav', short = 'alert.wav',
+    startup = 'chimes.wav', shutdown = 'dingdong.wav',
+}
+
+-- the volume of every sound, a whole percent from 0 to 150
+function fanfare.Volume()
+    local cfg = fanfare.Config and fanfare.Config()
+    local ref = cfg ~= nil and cfg.soundVolume or nil
+    return sounds.Volume(type(ref) == 'table' and ref[1] or nil)
+end
+
+-- play a sound for an alert at the set volume. a game sound that isn't
+-- there, or can't be read, plays HCrafter's own sound for that alert.
+-- returns true when something played.
+function fanfare.PlayChoice(key, choice)
+    if type(choice) ~= 'string' or choice == '' then
+        return false
+    end
+    local volume = fanfare.Volume()
+    if sounds.Play(choice, volume) then
+        return true
+    end
+    local fallback = fanfare.fallback[key]
+    if sounds.GameId(choice) ~= nil and fallback ~= nil then
+        return sounds.Play(fallback, volume)
+    end
+    return false
+end
+
 -- play the sound picked for an alert: levelUp, skillUp, hq, hqBig,
--- breaks, noMore, done or short. nothing plays with sounds off in Settings
--- or with None picked.
+-- breaks, noMore, done, short, startup or shutdown. nothing plays with sounds off in Settings,
+-- with None picked, or at volume 0.
 function fanfare.Sound(key)
     local cfg = fanfare.Config()
     if cfg == nil or cfg.sounds == nil or not (cfg.fanfare and cfg.fanfare.sound[1]) then
@@ -40,7 +73,7 @@ function fanfare.Sound(key)
         return false
     end
     fanfare.lastSound = key
-    return sounds.Play(file)
+    return fanfare.PlayChoice(key, file)
 end
 
 -- banner: { kind = 'levelup' | 'skillup' | 'hq' | 'break', title, sub,

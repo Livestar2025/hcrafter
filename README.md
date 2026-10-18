@@ -112,8 +112,22 @@ The alert only shows and sounds. It never presses your macro and never sends any
 - A banner for a break that lists what you lost. Breaks have no sound unless you pick one.
 - A toast when the recipe you repeat stops giving skill-ups.
 - Every skill-up can get a small banner too. It is off by default.
+- An optional startup sound once you're in game with HCrafter loaded, and an optional shutdown sound when you log out or unload HCrafter. Both are None by default. Closing the game without logging out may cut the shutdown sound short.
 
-Each one can be turned off in Settings. Each alert also has its own sound: pick one of HCrafter's ten sounds, one of your own `.wav` files, or None, and press Play to hear it. Put your own `.wav` files in `addons\hcrafter\sounds` and they show up in the lists. A picked file that is no longer there plays nothing and shows as missing. "Play sounds" turns every sound off. HCrafter's sounds were made for it from plain sine tones.
+Each one can be turned off in Settings. Each alert also has its own sound: one of the game's own sound effects, one of HCrafter's ten sounds, one of your own `.wav` files, or None. Press Play to hear it. "Play sounds" turns every sound off, and Volume sets the level of all of them from 0 to 150 percent.
+
+### The game's own sounds
+
+By default each alert plays one of FFXI's own sound effects, picked by ear for that alert. Breaks play nothing by default. The lists hold 42 game sounds: a second set picked for each alert, and 26 more named by folder and number. The list scrolls when it is taller than the screen allows.
+
+- HCrafter ships no game audio. It reads each sound from your own game folder, `SquareEnix\FINAL FANTASY XI\sound\win\se` inside your HorizonXI `Game` folder, or wherever the game's `FFXiMain.dll` was loaded from.
+- It turns the sound into a `.wav` file once and keeps it in `config\addons\hcrafter\sounds`, then plays that file. Changing the volume makes another copy at that volume.
+- It reads the game's PS-ADPCM and PCM sound files, which are most of them. The few in encrypted ATRAC3 are left alone.
+- If your game folder or a sound can't be found or read, the alert plays HCrafter's own sound for it, and Settings marks it "(missing)" or "(can't read)".
+
+### Your own sounds
+
+Put your own `.wav` files in `addons\hcrafter\sounds` and they show up in the lists. A picked file that is no longer there plays nothing and shows as missing. HCrafter's own sounds were made for it from plain sine tones.
 
 ## Prices
 
@@ -144,7 +158,7 @@ The History tab keeps your last 500 synths with results, skill-ups and lost mate
 ## Settings
 
 - Look: Navy or Charcoal frame, opacity, size from 75 to 150 percent, text size from 80 to 130 percent, growing with Ashita's font size, game icons on or off, and the Tahoma font on or off. Size scales whole windows. Text size changes only the text. Without Tahoma or game icons, HCrafter draws its own.
-- Fanfare, the alert after your macro, a sound for each alert, and the Shopping list's opacity.
+- Fanfare, the alert after your macro, a sound for each alert, one volume for all of them, and the Shopping list's opacity.
 - Hide with the map open, in cutscenes, or with the game interface hidden.
 
 ### Size on big screens
@@ -188,7 +202,8 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 - It reads incoming packets for synth results, skill-ups, craft levels and ranks, "You must wait longer," zoning and inventory loading. It also reads the outgoing synth request, the same way xitools crafty does.
 - It reads your equipped items, your buffs and your character's status from game memory.
 - It draws item and status icons from the pictures the game already has in memory, the way Ashita's equipmon addon does.
-- It plays `.wav` files from its own sounds folder with Ashita's sound function. It lists that folder to find any sounds you add.
+- It plays `.wav` files with Ashita's sound function: from its own sounds folder, and the copies it makes in `config\addons\hcrafter\sounds`. It lists its sounds folder to find any sounds you add.
+- It reads the game's own sound effect files from your game folder, only the ones picked in Settings, to make those copies. To find the folder it asks Windows where the game's `FFXiMain.dll` was loaded from.
 - It makes no network connections.
 - It writes files only under `config\addons\hcrafter`. It reads its own Lua files in an empty environment, so a damaged file can only fail to load.
 - If one of its windows hits an error or leaves something open in imgui, HCrafter closes what that window had open, skips it for the frame and prints the problem once.

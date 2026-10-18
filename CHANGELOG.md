@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.0 (2026-10-18)
+
+### The game's own sounds
+
+- Each alert now plays one of FFXI's own sound effects by default, picked by ear for that alert. Breaks still play nothing by default.
+- HCrafter ships no game audio. It reads the sound from your own game folder (`SquareEnix\FINAL FANTASY XI\sound\win\se`, or wherever the game's `FFXiMain.dll` was loaded from) and keeps a `.wav` copy in `config\addons\hcrafter\sounds`.
+- It reads the game's PS-ADPCM and PCM sound files. The few in encrypted ATRAC3 are left alone. The reader gives the same samples as vgmstream.
+- 42 game sounds are in the lists: two sets picked by ear with one sound for each alert ("FFXI level-up", "FFXI level-up 2" and so on), plus 26 more named by folder and number, such as "FFXI 000-026".
+- When the game's folder or a sound file can't be found or read, the alert plays HCrafter's own sound for it instead, and Settings says so.
+- A game sound is turned into a `.wav` file once, a frame at a time after loading, so the first alert plays at once.
+
+### Startup and shutdown sounds
+
+- Two optional sounds, None by default, picked like the others in Settings.
+- Startup plays once you're in game with HCrafter loaded: after you log in, or a few seconds after you load HCrafter in game.
+- Shutdown plays when you log out, or when HCrafter unloads while you're logged in.
+- [Inference] Closing the game without logging out may cut the shutdown sound short, since the game exits right away.
+
+### Volume
+
+- One volume for every sound, from 0 to 150 percent in Settings. HCrafter's own sounds and your own `.wav` files follow it too, through a copy at that volume in `config\addons\hcrafter\sounds`.
+- At 0, nothing plays.
+
+### Settings carried over
+
+- A sound still at its 1.2.1 default moves to the game's sound for that alert, once. A sound you picked yourself stays.
+
 ## 1.2.1 (2026-10-18)
 
 ### Size on big screens

@@ -19,6 +19,7 @@ local skillup = require('hc.skillup')
 local app = require('hc.app')
 local menu = require('hc.menu')
 local sounds = require('hc.sounds')
+local fanfareMod = require('hc.fanfare')
 
 local book = {
     width = 520,
@@ -886,6 +887,8 @@ local function SoundRow(dl, x, y, w, labelW, key, label)
     local label = sounds.Label(file)
     if file ~= '' and not sounds.Exists(file) then
         label = label .. ' (missing)'
+    elseif sounds.Unreadable(file) then
+        label = label .. ' (can\'t read)'
     end
     local name = text.Fit(label, s, false, math.max(Px(10), bw - Px(16) - g - Px(4)))
     text.Draw(dl, name, bx + Px(8), by + (h - s) / 2 - 1, col(file == '' and theme.textDim or 0xFFFFFF), s)
@@ -897,7 +900,7 @@ local function SoundRow(dl, x, y, w, labelW, key, label)
         ui.Tip('Pick the sound for this alert')
     end
     if ui.Button(dl, 'book.soundplay.' .. key, x + w - playW, by, 'Play', { width = playW }) then
-        sounds.Play(file)
+        fanfareMod.PlayChoice(key, file)
     end
     return used
 end
@@ -1105,13 +1108,33 @@ local function DrawSettingsTab(dl, x, y, w)
     end
     y = y + ui.Paragraph(dl, x, y, w, 'One alert when that many synths in a row are done, or when you run out of a material. A pause of more than 25 seconds starts a new count. It only shows and sounds. It never presses your macro.', theme.textDim, Px(11.5)) + Px(8)
 
-    -- the sound for each alert
-    changed = ui.Checkbox(dl, 'book.ffsound', x, y, 'Play sounds', fanfare.sound)
+    -- the sound for each alert, and one volume for them all
+    changed, cw = ui.Checkbox(dl, 'book.ffsound', x, y, 'Play sounds', fanfare.sound)
     if changed then app.Dirty() end
-    y = y + math.max(Px(26), text.H(Px(13)) + Px(10))
+    local volumeLabelW = text.Width('Volume', Px(13)) + Px(10)
+    local vx, vy = x + cw + Px(24), y - Px(2)
+    if vx + volumeLabelW + stepW > x + w then
+        -- no room beside the checkbox: Volume gets its own line
+        y = y + math.max(Px(26), text.H(Px(13)) + Px(10))
+        vx, vy = x, y - Px(2)
+    end
+    text.Draw(dl, 'Volume', vx, vy + (stepH - Px(13)) / 2 - 1, col(fanfare.sound[1] and theme.textSoft or theme.textMuted), Px(13))
+    value, _, _, stepped = ui.Stepper(dl, 'book.volume', vx + volumeLabelW, vy, fanfareMod.Volume(), 0, 150, 10, percent)
+    if stepped then
+        cfg.soundVolume[1] = value
+        app.Dirty()
+        -- the picked sounds get their copies at the new volume ahead of time
+        for _, ref in pairs(cfg.sounds) do
+            if type(ref) == 'table' then
+                sounds.Warm(ref[1], value)
+            end
+        end
+    end
+    y = y + math.max(Px(26), text.H(Px(13)) + Px(10), stepH + Px(4))
     local soundRows = {
         { 'levelUp', 'Level-up' }, { 'hq', 'HQ' }, { 'hqBig', 'Rare HQ' }, { 'breaks', 'Break' },
         { 'skillUp', 'Skill-up' }, { 'noMore', 'No more skill-ups' }, { 'done', 'Synths done' }, { 'short', 'Out of a material' },
+        { 'startup', 'Startup' }, { 'shutdown', 'Shutdown' },
     }
     local soundLabelW = 0
     for _, spec in ipairs(soundRows) do
@@ -1120,7 +1143,14 @@ local function DrawSettingsTab(dl, x, y, w)
     for _, spec in ipairs(soundRows) do
         y = y + SoundRow(dl, x, y, w, soundLabelW + Px(12), spec[1], spec[2]) + Px(4)
     end
-    y = y + Px(2) + ui.Paragraph(dl, x, y + Px(2), w, 'Your own .wav files in addons\\hcrafter\\sounds show up in these lists too.', theme.textDim, Px(11.5)) + Px(6)
+    local soundNote
+    y = y + ui.Paragraph(dl, x, y + Px(2), w, 'Startup plays once you\'re in game with HCrafter loaded. Shutdown plays when you log out or unload HCrafter.', theme.textDim, Px(11.5)) + Px(4)
+    if sounds.GameFolder() then
+        soundNote = 'Sounds marked FFXI are the game\'s own. HCrafter reads them from your game folder and keeps a copy in config\\addons\\hcrafter\\sounds. It ships none of them. Your own .wav files in addons\\hcrafter\\sounds show up in these lists too.'
+    else
+        soundNote = 'HCrafter can\'t find your game\'s sound folder, so FFXI sounds play HCrafter\'s own instead. Your own .wav files in addons\\hcrafter\\sounds show up in these lists too.'
+    end
+    y = y + Px(2) + ui.Paragraph(dl, x, y + Px(2), w, soundNote, theme.textDim, Px(11.5)) + Px(6)
 
     -- shopping list
     y = y + ui.Section(dl, x, y, w, 'Shopping list') + Px(6)

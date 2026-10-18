@@ -31,7 +31,7 @@
 
 addon.name    = 'hcrafter'
 addon.author  = 'lin (xitools crafty), HCrafter contributors'
-addon.version = '1.2.1'
+addon.version = '1.3.0'
 addon.desc    = 'Recipe book with sub-recipes, HQ odds, planner, skill-up ideas and fanfare. Based on xitools crafty.'
 
 require('common')
@@ -80,8 +80,9 @@ local function PerCraft(value)
 end
 
 local defaults = T{
-    -- 2 since 1.2.1: breaks play no sound by default
-    version = 2,
+    -- 2 since 1.2.1: breaks play no sound by default. 3 since 1.3.0: the
+    -- game's own sounds by default
+    version = 3,
     book = T{
         visible = T{ true },
         pos = T{ 100, 100 },
@@ -152,18 +153,24 @@ local defaults = T{
         enabled = T{ true },
         every = T{ 6 },
     },
-    -- the sound for each alert: a .wav file in the sounds folder, or ''
-    -- for none
+    -- the sound for each alert: one of the game's own sounds ('game:' and
+    -- its id under sound\win\se), a .wav file in the sounds folder, or ''
+    -- for none. Livestar picked the game sounds by ear.
     sounds = T{
-        levelUp = T{ 'levelup.wav' },
-        hq = T{ 'hq.wav' },
-        hqBig = T{ 'hq_big.wav' },
+        levelUp = T{ 'game:se043/se043006' },
+        hq = T{ 'game:se041/se041147' },
+        hqBig = T{ 'game:se037/se037067' },
         breaks = T{ '' },
-        skillUp = T{ '' },
-        noMore = T{ '' },
-        done = T{ 'ready.wav' },
-        short = T{ 'alert.wav' },
+        skillUp = T{ 'game:se044/se044177' },
+        noMore = T{ 'game:se034/se034012' },
+        done = T{ 'game:se008/se008229' },
+        short = T{ 'game:se035/se035131' },
+        -- optional: once you're in game, and when you log out or unload
+        startup = T{ '' },
+        shutdown = T{ '' },
     },
+    -- the volume of every sound, in percent (0 to 150)
+    soundVolume = T{ 100 },
     skillup = T{
         craft = T{ 1 },
         target = T{ 0 },
@@ -220,6 +227,21 @@ local function Prepare(cfg)
         end
         cfg.version = 2
     end
+    -- 1.3.0 plays the game's own sounds by default. a sound still at its
+    -- 1.2.1 default moves to the new one. a sound you picked stays.
+    if (tonumber(cfg.version) or 1) < 3 then
+        local before = {
+            levelUp = 'levelup.wav', hq = 'hq.wav', hqBig = 'hq_big.wav', skillUp = '',
+            noMore = '', done = 'ready.wav', short = 'alert.wav',
+        }
+        for key, old in pairs(before) do
+            local ref = cfg.sounds[key]
+            if type(ref) == 'table' and ref[1] == old then
+                ref[1] = defaults.sounds[key][1]
+            end
+        end
+        cfg.version = 3
+    end
 end
 
 local config = settings.load(defaults)
@@ -250,6 +272,17 @@ end)
 -- each character has its own history file
 session.OnChange(function(name)
     history.Load(name)
+end)
+
+-- the startup sound plays once you're in game with HCrafter loaded, and
+-- again after each new login. the shutdown sound plays when you log out,
+-- or when HCrafter unloads while you're logged in.
+local startupDue = true
+session.OnChange(function(name, old)
+    if name == nil and old ~= nil then
+        fanfare.Sound('shutdown')
+        startupDue = true
+    end
 end)
 
 local function Print(message)
@@ -619,12 +652,22 @@ ashita.events.register('load', 'hcrafter_load', function()
     -- fonts can only be added here, never in the middle of a frame
     text.Load()
     sounds.Refresh()
+    -- the game's sounds are turned into .wav files a frame at a time, so the
+    -- first alert plays at once
+    for _, ref in pairs(config.sounds) do
+        if type(ref) == 'table' then
+            sounds.Warm(ref[1], fanfare.Volume())
+        end
+    end
     session.OnLoad()
     stock.LoadOthers()
     prices.Load(true)
 end)
 
 ashita.events.register('unload', 'hcrafter_unload', function()
+    if session.name ~= nil then
+        fanfare.Sound('shutdown')
+    end
     stock.OnUnload()
     history.Save()
     settings.save()
@@ -797,6 +840,13 @@ ashita.events.register('d3d_present', 'hcrafter_present', function()
     icons.NewFrame()
     stock.Tick()
     history.Tick()
+    -- at most one game sound turned into a .wav file a frame. a file that
+    -- can't be made never stops the frame.
+    pcall(sounds.Tick)
+    if startupDue and session.IsReady() then
+        startupDue = false
+        fanfare.Sound('startup')
+    end
 
     -- settings no longer hold the history, so a save here is small
     if dirtyAt ~= nil and os.clock() - dirtyAt > 5 then
