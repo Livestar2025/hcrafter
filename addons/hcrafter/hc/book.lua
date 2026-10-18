@@ -885,7 +885,9 @@ local function SoundRow(dl, x, y, w, labelW, key, label)
     ui.Outline(dl, bx, by, bx + bw, by + h, col(hovered and theme.goldDarker or theme.border), Px(3), 1)
     local g = Px(11)
     local label = sounds.Label(file)
-    if file ~= '' and not sounds.Exists(file) then
+    if sounds.GameId(file) ~= nil and not sounds.GameFolder() then
+        label = label .. ' (no game folder)'
+    elseif file ~= '' and not sounds.Exists(file) then
         label = label .. ' (missing)'
     elseif sounds.Unreadable(file) then
         label = label .. ' (can\'t read)'
@@ -1123,12 +1125,16 @@ local function DrawSettingsTab(dl, x, y, w)
     if stepped then
         cfg.soundVolume[1] = value
         app.Dirty()
-        -- the picked sounds get their copies at the new volume ahead of time
+        -- the picked sounds get their copies at the new volume ahead of
+        -- time, and the folder is kept to sounds.maxCopies
+        local picked = { }
         for _, ref in pairs(cfg.sounds) do
-            if type(ref) == 'table' then
+            if type(ref) == 'table' and type(ref[1]) == 'string' and ref[1] ~= '' then
+                picked[#picked + 1] = ref[1]
                 sounds.Warm(ref[1], value)
             end
         end
+        sounds.Tidy(picked, value)
     end
     y = y + math.max(Px(26), text.H(Px(13)) + Px(10), stepH + Px(4))
     local soundRows = {
@@ -1144,12 +1150,13 @@ local function DrawSettingsTab(dl, x, y, w)
         y = y + SoundRow(dl, x, y, w, soundLabelW + Px(12), spec[1], spec[2]) + Px(4)
     end
     local soundNote
-    y = y + ui.Paragraph(dl, x, y + Px(2), w, 'Startup plays once you\'re in game with HCrafter loaded. Shutdown plays when you log out or unload HCrafter.', theme.textDim, Px(11.5)) + Px(4)
+    y = y + ui.Paragraph(dl, x, y + Px(2), w, 'Startup plays when HCrafter loads while you\'re in game, when you log in, and when /hcrafter shows this book. Shutdown plays when you log out or unload HCrafter.', theme.textDim, Px(11.5)) + Px(4)
     if sounds.GameFolder() then
-        soundNote = 'Sounds marked FFXI are the game\'s own. HCrafter reads them from your game folder and keeps a copy in config\\addons\\hcrafter\\sounds. It ships none of them. Your own .wav files in addons\\hcrafter\\sounds show up in these lists too.'
+        soundNote = 'Sounds marked FFXI are the game\'s own. HCrafter reads them from your game folder and keeps a copy in config\\addons\\hcrafter\\sounds. It ships none of them.'
     else
-        soundNote = 'HCrafter can\'t find your game\'s sound folder, so FFXI sounds play HCrafter\'s own instead. Your own .wav files in addons\\hcrafter\\sounds show up in these lists too.'
+        soundNote = 'HCrafter can\'t find your game\'s sound folder, so FFXI sounds play HCrafter\'s own instead.'
     end
+    soundNote = soundNote .. ' Your own .wav files in addons\\hcrafter\\sounds show up in these lists too. They follow the volume when they are 8, 16, 24 or 32-bit PCM or 32-bit float, mono or stereo, and up to 10 seconds long at 48 kHz. Others play at their own volume.'
     y = y + Px(2) + ui.Paragraph(dl, x, y + Px(2), w, soundNote, theme.textDim, Px(11.5)) + Px(6)
 
     -- shopping list

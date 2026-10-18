@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.1 (2026-10-18)
+
+### Sound fixes from an independent review of 1.3.0
+
+- Your own sound file deleted while you play is never passed to Windows, which would play its own sound instead. It plays nothing and shows as missing, at any volume. A game file that goes missing plays HCrafter's own sound for that alert. A folder named like a sound counts as missing too.
+- Copies are written in full under a temporary name and then put in place in one step, so a crash or a full disk never leaves a short copy that plays as silence. A short or empty copy is made again. A copy that can't be written plays HCrafter's own sound and is tried again a minute later, instead of on every alert.
+- Each copy's name carries a code for the size and last change time of the file it came from. A sound file you replace, or one of HCrafter's sounds changed by an update, gets a new copy.
+- Turning a sound into a `.wav` file takes about a sixth of the time it did: 10 ms instead of 65 ms for a 7-second stereo sound, measured with 64-bit LuaJIT. It also leaves far less for Lua's garbage collector.
+- Stepping the volume asks for each sound once, at the last volume picked, instead of once per click.
+- When HCrafter loads and when you change the volume, it deletes copies from 1.3.0, copies whose sound file changed, and files a write left behind more than ten minutes ago. Past 40 copies it deletes the oldest first, never the ones in use. Copies at another character's volume stay, so nothing is made again at every login. Nothing else in the folder is touched.
+- The sounds of your own character's settings are made ahead of time when Ashita switches to them at login, not only when HCrafter loads. Before, a character with other sounds or another volume had each one made on its first alert.
+- Your own `.wav` files follow the volume in more formats: 8, 16, 24 and 32-bit PCM and 32-bit float, mono or stereo, up to 10 seconds at 48 kHz (480,000 samples), including WAVE_FORMAT_EXTENSIBLE files. Others play at their own volume, and Settings says so. A file HCrafter can't rescale isn't read again each time it plays.
+- With no game folder found, Settings marks FFXI sounds "(no game folder)" instead of "(missing)".
+- Settings now says startup also plays when you log in and when `/hcrafter` shows the book.
+
 ## 1.3.0 (2026-10-18)
 
 ### The game's own sounds
@@ -32,6 +47,7 @@
 ### Settings carried over
 
 - A sound still at its 1.2.1 default moves to the game's sound for that alert, once. A sound you picked yourself stays.
+- Skill-up and No more skill-ups had no sound in 1.2.1, so they get the game's sound even if you had picked None. Pick None again to keep them quiet.
 
 ## 1.2.1 (2026-10-18)
 

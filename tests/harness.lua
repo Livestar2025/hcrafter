@@ -62,6 +62,19 @@ local realOpen, realLoadfile = io.open, loadfile
 io.open = function(path, mode)
     return realOpen(fixPath(path), mode)
 end
+local realRemove, realRename = os.remove, os.rename
+os.remove = function(path)
+    return realRemove(fixPath(path))
+end
+-- as on Windows, a rename onto a file that is there fails
+os.rename = function(from, to)
+    local there = realOpen(fixPath(to), 'rb')
+    if there ~= nil then
+        there:close()
+        return nil, fixPath(to) .. ': File exists'
+    end
+    return realRename(fixPath(from), fixPath(to))
+end
 loadfile = function(path)
     return realLoadfile(fixPath(path))
 end
@@ -256,7 +269,7 @@ ashita = {
             return false
         end,
         create_dir = function(path)
-            os.execute('mkdir -p ' .. quote(fixPath(path)))
+            os.execute('mkdir -p ' .. quote(fixPath(path)) .. ' 2>/dev/null')
             return true
         end,
         get_directory = function(path)
@@ -387,9 +400,54 @@ local fakeC = setmetatable({
         return 0
     end,
 }, { __index = function(_, k) error('ffi.C.' .. tostring(k) .. ' is not stubbed', 2) end })
+-- stand-ins for the Windows calls the sound code makes, so its game path is
+-- the one tested: a file's real size, a write time the checks set (Unix
+-- seconds by path in fileTimes, 0 when unset), and the folder bit
+local fileTimes = { }
+fakeC.GetFileAttributesExA = function(path, level, info)
+    local p = fixPath(path)
+    local f = realOpen(p, 'rb')
+    if f == nil then
+        return 0
+    end
+    local _, chunk, err = pcall(f.read, f, 1)
+    local folder = chunk == nil and type(err) == 'string' and err:find('directory', 1, true) ~= nil
+    local size = folder and 0 or (f:seek('end') or 0)
+    f:close()
+    info.attributes = folder and 16 or 32
+    info.sizeHigh, info.sizeLow = 0, size
+    local unix = fileTimes[p]
+    if unix ~= nil then
+        local ft = (unix + 11644473600) * 10000000
+        info.written[1] = math.floor(ft / 4294967296)
+        info.written[0] = ft % 4294967296
+    else
+        info.written[0], info.written[1] = 0, 0
+    end
+    return 1
+end
+-- MOVEFILE_REPLACE_EXISTING is the only flag HCrafter uses
+fakeC.MoveFileExA = function(from, to, flags)
+    if flags % 2 == 1 then
+        realRemove(fixPath(to))
+    end
+    return realRename(fixPath(from), fixPath(to)) and 1 or 0
+end
+fakeC.GetCurrentProcessId = function()
+    return 4242
+end
+-- everything but textures goes to LuaJIT's own FFI, so the sound code runs
+-- the way it does in the game
+local realFfi = require('ffi')
 package.loaded['ffi'] = {
     C = fakeC,
-    new = function(ctype) assert(ctype == 'IDirect3DTexture8*[1]', 'unexpected ffi.new: ' .. tostring(ctype)) return { } end,
+    new = function(ctype, ...)
+        if ctype == 'IDirect3DTexture8*[1]' then
+            return { }
+        end
+        assert(not tostring(ctype):find('Direct3D', 1, true), 'unexpected ffi.new: ' .. tostring(ctype))
+        return realFfi.new(ctype, ...)
+    end,
     cast = function(ctype, value)
         if ctype == 'uint32_t' then
             return value.ptr
@@ -397,6 +455,9 @@ package.loaded['ffi'] = {
         assert(ctype == 'IDirect3DTexture8*', 'unexpected ffi.cast: ' .. tostring(ctype))
         return value
     end,
+    cdef = realFfi.cdef,
+    string = realFfi.string,
+    abi = realFfi.abi,
 }
 
 ---------------------------------------------------------------------------
@@ -844,7 +905,7 @@ local chunk = assert(loadfile(ADDON .. '/hcrafter.lua'))
 local okLoad, errLoad = pcall(chunk)
 check(okLoad, 'hcrafter.lua loads' .. (okLoad and '' or (': ' .. tostring(errLoad))))
 if not okLoad then cleanup() os.exit(1) end
-check(addon.name == 'hcrafter' and addon.version == '1.3.0', 'addon metadata set: hcrafter 1.3.0')
+check(addon.name == 'hcrafter' and addon.version == '1.3.1', 'addon metadata set: hcrafter 1.3.1')
 
 local config = settingsStub.current
 local defaults = settingsStub.defaults
@@ -2885,9 +2946,10 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
     -- the sound for each alert
     sounds = { }
     f, why = frame(true)
-    check(why == nil and hasText(f, 'Synths done', 'hcrafter.book') and hasTextLike(f, 'FFXI synths done (missing)', 'hcrafter.book') ~= nil
-        and hasTextLike(f, 'FFXI level-up (missing)', 'hcrafter.book') ~= nil and hasTextLike(f, 'find your game', 'hcrafter.book') ~= nil,
-        'Settings lists each alert with its sound, marks the game\'s sounds missing with no game folder, and says why')
+    check(why == nil and hasText(f, 'Synths done', 'hcrafter.book') and hasTextLike(f, 'FFXI synths done (no game folder)', 'hcrafter.book') ~= nil
+        and hasTextLike(f, 'FFXI level-up (no game folder)', 'hcrafter.book') ~= nil and hasTextLike(f, 'find your game', 'hcrafter.book') ~= nil
+        and table.concat(drawn(f, 'hcrafter.book'), ' '):find('Others play at their own volume', 1, true) ~= nil,
+        'Settings lists each alert with its sound, marks the game\'s sounds when there is no game folder, and says why')
     config.sounds.done[1] = 'ready.wav'
     config.sounds.short[1] = 'alert.wav'
     S.click = { 'book.sound.done' }
@@ -3227,17 +3289,92 @@ print("== the game's own sounds")
     end
     check(half[1][1] == -6500 and half[2][2] == 241 and loud[1][1] == -32768 and loudMax == 32767 and loudMin == -32768 and loud[1][300] == 2457,
         'volume scales every sample and keeps loud ones in range: ' .. tostring(half[1][1]) .. ' ' .. tostring(loudMax))
-    local eightBit = w1:sub(1, 34) .. string.char(8, 0) .. w1:sub(37)
-    check(wave.Read(eightBit) == nil and wave.Read('RIFF') == nil and wave.Read(nil) == nil, 'a .wav file that isn\'t 16-bit PCM is left alone')
+    check(type(spw.Decode(MakeSpw(0, 1, 2, 16))[1]) == 'cdata' and type(back[1]) == 'cdata',
+        'with LuaJIT\'s FFI, samples live in plain arrays')
+
+    -- .wav files in other formats: tag, bits, channels, sample bytes, and
+    -- for WAVE_FORMAT_EXTENSIBLE the real format
+    local function U16(v) return string.char(v % 256, math.floor(v / 256) % 256) end
+    local function MakeWav(tag, bits, ch, body, subTag, align)
+        local fmt
+        align = align or ch * math.floor(bits / 8)
+        if subTag ~= nil then
+            fmt = U16(0xFFFE) .. U16(ch) .. U32(44100) .. U32(44100 * align) .. U16(align) .. U16(bits)
+                .. U16(22) .. U16(bits) .. U32(ch == 2 and 3 or 4) .. U16(subTag) .. '\0\0\0\0\16\0\128\0\0\170\0\56\155\113'
+        else
+            fmt = U16(tag) .. U16(ch) .. U32(44100) .. U32(44100 * align) .. U16(align) .. U16(bits)
+        end
+        return 'RIFF' .. U32(4 + 8 + #fmt + 8 + #body) .. 'WAVE' .. 'fmt ' .. U32(#fmt) .. fmt .. 'data' .. U32(#body) .. body
+    end
+    local function Samples(sound)
+        local out = { }
+        for i = 1, sound.samples do
+            for c = 1, sound.channels do out[#out + 1] = sound[c][i] end
+        end
+        return table.concat(out, ' ')
+    end
+    local formats = {
+        { '8-bit', MakeWav(1, 8, 1, '\0\128\255'), '-32768 0 32512' },
+        { '24-bit', MakeWav(1, 24, 1, '\0\0\128' .. '\255\255\127' .. '\52\18\0'), '-32768 32767 18' },
+        { '32-bit', MakeWav(1, 32, 1, '\0\0\0\128' .. '\255\255\255\127' .. '\0\0\52\18'), '-32768 32767 4660' },
+        { 'float', MakeWav(3, 32, 1, '\0\0\0\63' .. '\0\0\128\191' .. '\0\0\0\64' .. '\0\0\0\0'), '16384 -32767 32767 0' },
+        { 'extensible 16-bit stereo', MakeWav(nil, 16, 2, U16(1000) .. U16(65535) .. U16(32767) .. U16(32768), 1), '1000 -1 32767 -32768' },
+        { 'extensible float', MakeWav(nil, 32, 1, '\0\0\0\63', 3), '16384' },
+    }
+    for _, case in ipairs(formats) do
+        local sound, why = wave.Read(case[2])
+        check(sound ~= nil and sound.rate == 44100 and Samples(sound) == case[3],
+            ('a %s .wav file reads as 16-bit samples: %s'):format(case[1], sound and Samples(sound) or tostring(why)))
+    end
+    local refused = {
+        MakeWav(1, 12, 1, '\0\0'), MakeWav(1, 16, 3, ('\0'):rep(6)), MakeWav(2, 4, 1, '\0\0'),
+        MakeWav(1, 16, 1, '\0\0\0\0', nil, 4), MakeWav(3, 64, 1, ('\0'):rep(8)), MakeWav(nil, 16, 1, '\0\0', 2),
+    }
+    local allRefused = true
+    for _, data in ipairs(refused) do
+        if wave.Read(data) ~= nil then allRefused = false end
+    end
+    check(allRefused and wave.Read('RIFF') == nil and wave.Read(nil) == nil,
+        '12-bit, 3 channels, ADPCM, a mismatched block size, 64-bit float and an extensible file that isn\'t PCM are left alone')
+    local long = MakeWav(1, 8, 1, ('\128'):rep(480001))
+    check(wave.Read(long) == nil and wave.Read(MakeWav(1, 8, 1, ('\128'):rep(480000))) ~= nil,
+        'a .wav file with more than 480,000 samples a channel (10 seconds at 48 kHz) is left alone')
+
+    -- the same results without LuaJIT's FFI, as in the browser prototype
+    local saved = { ffi = package.loaded['ffi'], preload = package.preload['ffi'], wave = package.loaded['hc.wave'], spw = package.loaded['hc.spw'] }
+    package.loaded['ffi'] = nil
+    package.preload['ffi'] = function() error('no FFI here') end
+    package.loaded['hc.wave'], package.loaded['hc.spw'] = nil, nil
+    local plainWave = require('hc.wave')
+    local plainSpw = require('hc.spw')
+    package.loaded['ffi'], package.preload['ffi'] = saved.ffi, saved.preload
+    package.loaded['hc.wave'], package.loaded['hc.spw'] = saved.wave, saved.spw
+    local plainSame = type(plainWave.NewSamples(1)) == 'table'
+    for _, data in ipairs({ MakeSpw(0, 1, 40, 16), MakeSpw(0, 2, 40, 16), MakeSpw(1, 1, 300, 1), MakeSpw(1, 2, 300, 1) }) do
+        local x, y = plainSpw.Decode(data), spw.Decode(data)
+        if plainWave.Write(x, 0.7) ~= wave.Write(y, 0.7) or plainWave.Write(x, 1) ~= wave.Write(y, 1) then plainSame = false end
+    end
+    for _, case in ipairs(formats) do
+        local x, y = plainWave.Read(case[2]), wave.Read(case[2])
+        if x == nil or Samples(x) ~= Samples(y) then plainSame = false end
+    end
+    check(plainSame, 'without the FFI, reading, decoding and writing give the same bytes')
 
     -- no game folder: HCrafter's own sounds stand in
     local seRoot = TMP .. '/SquareEnix/FINAL FANTASY XI/sound/win/se'
     local cache = TMP .. '/config/addons/hcrafter/sounds'
+    -- each write gets a later write time, as on Windows
+    local clockNow = os.time() - 3600
+    local function Stamp(path)
+        clockNow = clockNow + 1
+        fileTimes[fixPath(path)] = clockNow
+    end
     local function Put(id, data)
         os.execute('mkdir -p ' .. quote(seRoot .. '/' .. id:match('^(se%d+)/')))
         local file = realOpen(seRoot .. '/' .. id .. '.spw', 'wb')
         file:write(data)
         file:close()
+        Stamp(seRoot .. '/' .. id .. '.spw')
     end
     local function ReadFile(path)
         local file = realOpen(path, 'rb')
@@ -3281,36 +3418,130 @@ print("== the game's own sounds")
         and options[9].label == 'FFXI out of a material' and extra == 'FFXI 000-026' and options[#soundsMod.game + 2].file == 'ready.wav',
         'the lists show None, the game\'s sounds by name, then HCrafter\'s')
 
+    -- the copies HCrafter makes carry a code for their source file, so
+    -- they are found by the start of their names
+    local function Copies(stem)
+        local out = { }
+        local pipe = io.popen('ls -1 ' .. quote(cache) .. ' 2>/dev/null')
+        for line in pipe:lines() do
+            if line:sub(1, #stem + 1) == stem .. '-' and line:match('%.wav$') then out[#out + 1] = line end
+        end
+        pipe:close()
+        return out
+    end
+    local function Copy(stem)
+        local list = Copies(stem)
+        return #list == 1 and (cache .. '/' .. list[1]) or nil
+    end
+    local function Listing()
+        local out = { }
+        local pipe = io.popen('ls -1 ' .. quote(cache) .. ' 2>/dev/null')
+        for line in pipe:lines() do out[#out + 1] = line end
+        pipe:close()
+        table.sort(out)
+        return table.concat(out, ' ')
+    end
+    local function WriteFile(path, data)
+        local file = realOpen(path, 'wb')
+        file:write(data)
+        file:close()
+        Stamp(path)
+    end
+
     -- playing one makes a .wav file once
     sounds = { }
-    check(fanfareMod.Sound('levelUp') and #sounds == 1 and sounds[1]:find('se043006-v100.wav', 1, true) ~= nil, 'a game sound plays from a .wav file HCrafter made')
-    local made = wave.Read(ReadFile(cache .. '/se043006-v100.wav'))
+    check(fanfareMod.Sound('levelUp') and #sounds == 1 and sounds[1]:find('se043006-v100-', 1, true) ~= nil and Copy('se043006-v100') ~= nil,
+        'a game sound plays from a .wav file HCrafter made')
+    local made = wave.Read(ReadFile(Copy('se043006-v100')))
     check(made ~= nil and Hash(made) == 1960583072, 'the file holds the game\'s sound sample for sample')
+    check(not Listing():find('.tmp', 1, true), 'no file is left half-named after a write')
     os.remove(seRoot .. '/se043/se043006.spw')
     soundsMod.Refresh()
     check(not soundsMod.Exists('game:se043/se043006'), 'a game file that is gone counts as missing')
+    local firstCopy130 = Copies('se043006-v100')[1]
     Put('se043/se043006', adpcm)
     soundsMod.Refresh()
-    local before = ReadFile(cache .. '/se043006-v100.wav')
-    local file = realOpen(cache .. '/se043006-v100.wav', 'ab')
-    file:write('X')
-    file:close()
     sounds = { }
     fanfareMod.Sound('levelUp')
-    check(#sounds == 1 and ReadFile(cache .. '/se043006-v100.wav') == before .. 'X', 'the next time it plays the file already made')
+    local copyName = #sounds == 1 and sounds[1]:match('[^\\/]+$') or ''
+    local copyPath = cache .. '/' .. copyName
+    check(copyName:find('se043006-v100-', 1, true) == 1 and copyName ~= firstCopy130 and #Copies('se043006-v100') == 2,
+        'a game file written again, same size, gets a new copy: its write time is in the code')
+    local before = ReadFile(copyPath)
+    local marked = before:sub(1, 44) .. string.char((before:byte(45) + 1) % 256) .. before:sub(46)
+    WriteFile(copyPath, marked)
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    check(#sounds == 1 and ReadFile(copyPath) == marked, 'the next time it plays the file already made')
+    WriteFile(copyPath, before:sub(1, 30))
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    check(#sounds == 1 and ReadFile(copyPath) == before, 'a copy cut short, say by a crash during the write, is made again')
+    WriteFile(copyPath, '')
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    check(#sounds == 1 and ReadFile(copyPath) == before, 'and so is an empty one')
+
+    -- a copy that can't be written: HCrafter's own sound plays, and the game
+    -- sound is tried again next time
+    os.execute('rm -rf ' .. quote(cache))
+    WriteFile(cache, 'not a folder')
+    local filesMod0 = require('hc.files')
+    local readText0, decodes = filesMod0.ReadText, 0
+    filesMod0.ReadText = function(path, binary)
+        if tostring(path):find('se043006.spw', 1, true) then decodes = decodes + 1 end
+        return readText0(path, binary)
+    end
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    fanfareMod.Sound('levelUp')
+    filesMod0.ReadText = readText0
+    check(#sounds == 2 and sounds[1]:find('levelup.wav', 1, true) ~= nil and sounds[2]:find('levelup.wav', 1, true) ~= nil
+        and not soundsMod.Unreadable('game:se043/se043006') and decodes == 1,
+        'a copy that can\'t be written plays HCrafter\'s own sound, isn\'t marked unreadable, and isn\'t decoded again on the next alert')
+    os.remove(cache)
+    soundsMod.Refresh()
+    sounds = { }
+    fanfareMod.Sound('levelUp')
+    check(#sounds == 1 and sounds[1]:find('se043006-v100-', 1, true) ~= nil, 'once it can be written, the game sound plays')
+    -- without MoveFileEx and without os.rename, nothing raises an error
+    local moveFile, osRename = fakeC.MoveFileExA, os.rename
+    fakeC.MoveFileExA, os.rename = nil, nil
+    os.execute('rm -rf ' .. quote(cache))
+    soundsMod.Refresh()
+    sounds = { }
+    local okPlay = pcall(fanfareMod.Sound, 'levelUp')
+    fakeC.MoveFileExA, os.rename = moveFile, osRename
+    check(okPlay and #sounds == 1 and sounds[1]:find('levelup.wav', 1, true) ~= nil,
+        'with no way to rename a file, the alert still plays HCrafter\'s own sound, with no error')
+    soundsMod.Refresh()
+    -- without the Windows calls, as in the browser prototype: a copy's code
+    -- comes from the size alone, and copies still work
+    do
+        local savedFfi, savedPreload = package.loaded['ffi'], package.preload['ffi']
+        package.loaded['ffi'] = nil
+        package.preload['ffi'] = function() error('no FFI here') end
+        local plain = assert(loadfile(ADDON .. '/hc/sounds.lua'))()
+        plain.Refresh()
+        local okPlain, plainPath = pcall(plain.PathFor, 'game:se043/se043006', 70)
+        local okAgain, again = pcall(plain.PathFor, 'game:se043/se043006', 70)
+        package.loaded['ffi'], package.preload['ffi'] = savedFfi, savedPreload
+        check(okPlain and okAgain and type(plainPath) == 'string' and plainPath == again and wave.Whole(plainPath)
+            and plainPath:find('se043006-v70-', 1, true) ~= nil, 'without Windows\' file calls a copy is made once and played: ' .. tostring(plainPath))
+    end
 
     -- volume
     config.soundVolume[1] = 50
     sounds = { }
     fanfareMod.Sound('levelUp')
-    local quiet = wave.Read(ReadFile(cache .. '/se043006-v50.wav'))
-    check(#sounds == 1 and sounds[1]:find('se043006-v50.wav', 1, true) ~= nil and quiet ~= nil and quiet[1][1] == math.floor(made[1][1] * 0.5 + 0.5),
+    local quiet = wave.Read(ReadFile(Copy('se043006-v50')))
+    check(#sounds == 1 and sounds[1]:find('se043006-v50-', 1, true) ~= nil and quiet ~= nil and quiet[1][1] == math.floor(made[1][1] * 0.5 + 0.5),
         'at volume 50 it plays a copy at half the level')
     config.sounds.done[1] = 'ready.wav'
     sounds = { }
     fanfareMod.Sound('done')
-    local ownQuiet = wave.Read(ReadFile(cache .. '/own-ready-v50.wav'))
-    check(#sounds == 1 and sounds[1]:find('own-ready-v50.wav', 1, true) ~= nil and ownQuiet ~= nil, 'HCrafter\'s own sounds follow the volume too')
+    local ownQuiet = Copy('own-ready-v50') and wave.Read(ReadFile(Copy('own-ready-v50')))
+    check(#sounds == 1 and sounds[1]:find('own-ready-v50-', 1, true) ~= nil and ownQuiet ~= nil, 'HCrafter\'s own sounds follow the volume too')
     config.soundVolume[1] = 0
     sounds = { }
     fanfareMod.Sound('levelUp')
@@ -3318,6 +3549,92 @@ print("== the game's own sounds")
     check(#sounds == 0, 'at volume 0 nothing plays')
     check(soundsMod.Volume('x') == 100 and soundsMod.Volume(999) == 150 and soundsMod.Volume(-5) == 0 and soundsMod.Volume(0 / 0) == 100 and soundsMod.Volume(54.6) == 55,
         'odd volume values are kept between 0 and 150')
+
+    -- your own .wav files
+    local mineDir = TMP .. '/addons/hcrafter/sounds'
+    local function Tone(n, bits)
+        local body = { }
+        for i = 1, n do
+            local v = ((i * 997) % 20000) - 10000
+            if bits == 24 then
+                if v < 0 then v = v + 16777216 end
+                body[i] = string.char(v % 256, math.floor(v / 256) % 256, math.floor(v / 65536))
+            else
+                if v < 0 then v = v + 65536 end
+                body[i] = U16(v)
+            end
+        end
+        return MakeWav(1, bits, 1, table.concat(body))
+    end
+    WriteFile(mineDir .. '/mine.wav', Tone(400, 16))
+    soundsMod.Refresh()
+    config.soundVolume[1] = 80
+    config.sounds.done[1] = 'mine.wav'
+    sounds = { }
+    fanfareMod.Sound('done')
+    local firstCopy = Copy('own-mine-v80')
+    check(#sounds == 1 and firstCopy ~= nil and sounds[1]:find('own-mine-v80-', 1, true) ~= nil,
+        'your own sound at volume 80 plays a copy at that volume')
+    WriteFile(mineDir .. '/mine.wav', Tone(500, 16))
+    sounds = { }
+    fanfareMod.Sound('done')
+    local copies = Copies('own-mine-v80')
+    local playedName = #sounds == 1 and sounds[1]:match('[^\\/]+$') or ''
+    local playedCopy = wave.Read(ReadFile(cache .. '/' .. playedName) or '')
+    check(#copies == 2 and playedName ~= firstCopy:match('[^/]+$') and playedName:find('own-mine-v80-', 1, true) == 1
+        and playedCopy ~= nil and playedCopy.samples == 500,
+        'a sound file that changed gets a new copy, not the old one: ' .. table.concat(copies, ' '))
+    WriteFile(mineDir .. '/mine.wav', Tone(500, 16))
+    sounds = { }
+    fanfareMod.Sound('done')
+    check(#sounds == 1 and #Copies('own-mine-v80') == 3, 'so does one replaced by a file of the same size, by its write time')
+    os.execute('mkdir -p ' .. quote(mineDir .. '/folder.wav'))
+    soundsMod.Refresh()
+    config.sounds.done[1] = 'folder.wav'
+    config.soundVolume[1] = 100
+    sounds = { }
+    check(not fanfareMod.Sound('done') and #sounds == 0, 'a folder named like a sound is never passed to Windows')
+    os.execute('rm -rf ' .. quote(mineDir .. '/folder.wav'))
+    config.sounds.done[1] = 'mine.wav'
+    config.soundVolume[1] = 80
+    os.remove(mineDir .. '/mine.wav')
+    sounds = { }
+    check(not fanfareMod.Sound('done') and #sounds == 0 and not soundsMod.Exists('mine.wav'),
+        'your own file deleted while you play is never passed to Windows at volume 80, and shows as missing')
+    WriteFile(mineDir .. '/mine.wav', Tone(400, 16))
+    soundsMod.Refresh()
+    config.soundVolume[1] = 100
+    os.remove(mineDir .. '/mine.wav')
+    sounds = { }
+    check(not fanfareMod.Sound('done') and #sounds == 0, 'nor at volume 100, though the folder was read before it went')
+    WriteFile(mineDir .. '/deep.wav', Tone(300, 24))
+    WriteFile(mineDir .. '/three.wav', MakeWav(1, 16, 3, ('\1\0'):rep(30)))
+    soundsMod.Refresh()
+    config.soundVolume[1] = 50
+    config.sounds.done[1] = 'deep.wav'
+    sounds = { }
+    fanfareMod.Sound('done')
+    local deep = Copy('own-deep-v50') and wave.Read(ReadFile(Copy('own-deep-v50')))
+    check(#sounds == 1 and deep ~= nil and deep.samples == 300 and deep[1][1] == math.floor(wave.Read(Tone(300, 24))[1][1] * 0.5 + 0.5),
+        'a 24-bit file of your own follows the volume')
+    config.sounds.done[1] = 'three.wav'
+    local filesMod = require('hc.files')
+    local realReadText = filesMod.ReadText
+    local reads = 0
+    filesMod.ReadText = function(path, binary)
+        if tostring(path):find('three.wav', 1, true) then reads = reads + 1 end
+        return realReadText(path, binary)
+    end
+    sounds = { }
+    fanfareMod.Sound('done')
+    fanfareMod.Sound('done')
+    filesMod.ReadText = realReadText
+    check(#sounds == 2 and sounds[1]:find('three.wav', 1, true) ~= nil and soundsMod.AsIs('three.wav') and reads == 1,
+        'a file HCrafter can\'t rescale plays at its own volume, and isn\'t read again each time')
+    os.remove(mineDir .. '/deep.wav')
+    os.remove(mineDir .. '/three.wav')
+    soundsMod.Refresh()
+    config.sounds.done[1] = 'ready.wav'
     config.soundVolume[1] = 100
 
     -- a game sound HCrafter can't read plays HCrafter's own instead
@@ -3340,11 +3657,21 @@ print("== the game's own sounds")
         and soundsMod.GameId('game:se043/se043006') == 'se043/se043006' and #sounds == 0, 'only the exact game sound shape plays, so a setting can\'t name a path')
 
     -- the Settings controls
+    while soundsMod.Tick() do end
     S.click = { 'book.volume.minus' }
     frame(false)
     check(config.soundVolume[1] == 90, 'the volume steps down by 10: ' .. tostring(config.soundVolume[1]))
+    while soundsMod.Tick() do end
+    check(Copy('se043006-v90') ~= nil and Copy('own-ready-v90') ~= nil and #Copies('se043006-v50') == 1,
+        'stepping the volume makes the picked sounds\' copies at the new volume ahead of time, and copies at other volumes stay while there is room')
     S.click = { 'book.volume.plus' }
     frame(false)
+    while soundsMod.Tick() do end
+    check(config.soundVolume[1] == 100 and #Copies('se043006-v100') >= 1, 'stepping back plays from the copies at 100: ' .. Listing())
+    soundsMod.Warm('ready.wav', 90)
+    local queued = soundsMod.Waiting()
+    soundsMod.Warm('ready.wav', 100)
+    check(queued == 1 and soundsMod.Waiting() == 0, 'a sound queued for a volume that then needs no copy leaves the queue')
     config.sounds.hq[1] = 'game:se041/se041147'
     config.sounds.hqBig[1] = 'game:se037/se037067'
     S.click = { 'book.sound.levelUp' }
@@ -3356,7 +3683,7 @@ print("== the game's own sounds")
     sounds = { }
     S.select = 'FFXI skill-up##'
     frame(false)
-    check(config.sounds.levelUp[1] == 'game:se044/se044177' and #sounds == 1 and sounds[1]:find('se044177-v100.wav', 1, true) ~= nil,
+    check(config.sounds.levelUp[1] == 'game:se044/se044177' and #sounds == 1 and sounds[1]:find('se044177-v100-', 1, true) ~= nil,
         'picking a game sound sets it and plays it')
     config.sounds.levelUp[1] = 'game:se043/se043006'
     frame(false)
@@ -3371,10 +3698,57 @@ print("== the game's own sounds")
     soundsMod.Warm('ready.wav', 100)
     check(soundsMod.Waiting() == 2, 'only game sounds and sounds at another volume wait to be made')
     frame(false)
-    check(soundsMod.Waiting() == 1 and ReadFile(cache .. '/se008229-v100.wav') ~= nil and ReadFile(cache .. '/se035131-v100.wav') == nil,
+    check(soundsMod.Waiting() == 1 and Copy('se008229-v100') ~= nil and Copy('se035131-v100') == nil,
         'each frame makes one file')
     frame(false)
-    check(soundsMod.Waiting() == 0 and ReadFile(cache .. '/se035131-v100.wav') ~= nil, 'and the next frame the next one')
+    check(soundsMod.Waiting() == 0 and Copy('se035131-v100') ~= nil, 'and the next frame the next one')
+    soundsMod.Warm('game:se016/se016106', 70)
+    soundsMod.Warm('game:se016/se016106', 80)
+    soundsMod.Warm('ready.wav', 60)
+    soundsMod.Warm('game:se016/se016106', 90)
+    check(soundsMod.Waiting() == 2, 'a sound asked for again waits once, so stepping the volume never piles up work')
+    while soundsMod.Tick() do end
+    check(Copy('se016106-v90') ~= nil and #Copies('se016106-v70') == 0 and #Copies('se016106-v80') == 0 and Copy('own-ready-v60') ~= nil,
+        'it is made at the last volume asked for')
+
+    -- tidying: what is out of date goes, and nothing else in the folder
+    for _, name in ipairs({ 'se043006-v100.wav', 'own-ready-v50.wav', 'se043006-v100-00000000.wav', 'se043006-v100-1a2b3c4d.wav.77.tmp', 'se043006-v100-1a2b3c4d.wav.78.tmp', 'notes.txt', 'mine.wav' }) do
+        WriteFile(cache .. '/' .. name, 'x')
+    end
+    fileTimes[fixPath(cache .. '/se043006-v100-1a2b3c4d.wav.77.tmp')] = os.time() - 3600
+    fileTimes[fixPath(cache .. '/se043006-v100-1a2b3c4d.wav.78.tmp')] = os.time() - 30
+    local before6 = Listing()
+    local removed = soundsMod.Tidy({ 'game:se016/se016106', 'game:se043/se043006' }, 90)
+    local after6 = ' ' .. Listing() .. ' '
+    check(removed == 4 and not after6:find(' se043006-v100.wav ', 1, true) and not after6:find(' own-ready-v50.wav ', 1, true)
+        and not after6:find('00000000', 1, true) and not after6:find('.77.tmp', 1, true) and after6:find('.78.tmp', 1, true) ~= nil
+        and after6:find(' notes.txt ', 1, true) ~= nil and after6:find(' mine.wav ', 1, true) ~= nil and #Copies('se008229-v100') == 1
+        and #Copies('own-ready-v60') == 1 and #Copies('se016106-v90') == 1,
+        'a tidy deletes 1.3.0 copies, copies whose source changed and a write left an hour ago, but keeps one a write may still be using, other copies and other files: ' .. before6 .. ' -> ' .. after6)
+    -- past the most it keeps, the oldest copies go first, never the ones in use
+    fileTimes[fixPath(cache .. '/' .. Copies('se035131-v100')[1])] = os.time() - 500
+    fileTimes[fixPath(cache .. '/' .. Copies('se008229-v100')[1])] = os.time() - 400
+    fileTimes[fixPath(cache .. '/' .. Copies('own-ready-v60')[1])] = os.time() - 300
+    soundsMod.maxCopies = 4
+    removed = soundsMod.Tidy({ 'game:se016/se016106', 'game:se043/se043006' }, 90)
+    soundsMod.maxCopies = 40
+    check(removed == 1 and #Copies('se035131-v100') == 0 and #Copies('se008229-v100') == 1 and #Copies('own-ready-v60') == 1 and #Copies('se016106-v90') == 1,
+        'past the most it keeps, a tidy deletes the oldest copy first and never one in use: ' .. Listing())
+    os.remove(cache .. '/se043006-v100-1a2b3c4d.wav.78.tmp')
+
+    -- your character's settings, switched in at login, get their sounds
+    -- made at their volume
+    local shortBefore = config.sounds.short[1]
+    while soundsMod.Tick() do end
+    os.execute('rm -rf ' .. quote(cache))
+    config.soundVolume[1] = 70
+    config.sounds.short[1] = 'game:se041/se041132'
+    settingsStub.callbacks[1](config)
+    check(soundsMod.Waiting() >= 2, 'switching settings asks for the picked sounds: ' .. tostring(soundsMod.Waiting()))
+    while soundsMod.Tick() do end
+    check(Copy('se041132-v70') ~= nil and Copy('se043006-v70') ~= nil, 'and makes them at that character\'s volume')
+    config.soundVolume[1] = 100
+    config.sounds.short[1] = shortBefore
 
     -- settings saved by 1.2.1
     config.version = 2
@@ -3417,9 +3791,15 @@ print("== the game's own sounds")
     frame(false)
     check(#sounds == 1, 'it plays once, not again when you zone')
     sounds = { }
+    os.execute('mkdir -p ' .. quote(cache))
+    WriteFile(cache .. '/se043006-v100.wav', 'x')
+    soundsMod.PathFor('game:se043/se043006', 70)
+    local otherVolume = Copy('se043006-v70') ~= nil
     fire('load')
     frame(false)
     check(#sounds == 1 and sounds[1]:find('chimes.wav', 1, true) ~= nil, 'loading HCrafter while you\'re in game plays the startup sound at once, and once')
+    check(ReadFile(cache .. '/se043006-v100.wav') == nil and otherVolume and Copy('se043006-v70') ~= nil,
+        'loading HCrafter deletes a 1.3.0 copy but keeps a copy another character\'s volume uses')
     sounds = { }
     config.book.visible[1] = false
     command('/hcrafter')

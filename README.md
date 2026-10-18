@@ -121,13 +121,13 @@ Each one can be turned off in Settings. Each alert also has its own sound: one o
 By default each alert plays one of FFXI's own sound effects, picked by ear for that alert. Breaks play nothing by default. The lists hold 42 game sounds: a second set picked for each alert, and 26 more named by folder and number. The list scrolls when it is taller than the screen allows.
 
 - HCrafter ships no game audio. It reads each sound from your own game folder, `SquareEnix\FINAL FANTASY XI\sound\win\se` inside your HorizonXI `Game` folder, or wherever the game's `FFXiMain.dll` was loaded from.
-- It turns the sound into a `.wav` file once and keeps it in `config\addons\hcrafter\sounds`, then plays that file. Changing the volume makes another copy at that volume.
+- It turns the sound into a `.wav` file once and keeps it in `config\addons\hcrafter\sounds`, then plays that file. Changing the volume makes a copy at the new volume. HCrafter keeps at most 40 copies, deleting the oldest first but never the ones in use, and deletes copies whose sound file changed.
 - It reads the game's PS-ADPCM and PCM sound files, which are most of them. The few in encrypted ATRAC3 are left alone.
-- If your game folder or a sound can't be found or read, the alert plays HCrafter's own sound for it, and Settings marks it "(missing)" or "(can't read)".
+- If your game folder or a sound can't be found or read, the alert plays HCrafter's own sound for it, and Settings marks it "(no game folder)", "(missing)" or "(can't read)".
 
 ### Your own sounds
 
-Put your own `.wav` files in `addons\hcrafter\sounds` and they show up in the lists. A picked file that is no longer there plays nothing and shows as missing. HCrafter's own sounds were made for it from plain sine tones.
+Put your own `.wav` files in `addons\hcrafter\sounds` and they show up in the lists. A picked file that is no longer there plays nothing and shows as missing. They follow the volume when they are PCM (8, 16, 24 or 32-bit) or 32-bit float, mono or stereo, and up to 10 seconds long at 48 kHz. Others play at their own volume. HCrafter's own sounds were made for it from plain sine tones.
 
 ## Prices
 
@@ -163,7 +163,7 @@ The History tab keeps your last 500 synths with results, skill-ups and lost mate
 
 ### Size on big screens
 
-HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita boot `.ini`. HCrafter's 100% is drawn for Ashita's default size: 18 px on Ashita 4.3, 14 px before that. If you set Ashita's font to 36 px, HCrafter draws at 200%. At 28 px, it draws at 155%. Size and Text size adjust from there. Settings shows both numbers. Untick "Grow with Ashita's font size" to size HCrafter on its own.
+HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita boot `.ini`. HCrafter's 100% is drawn for Ashita's default size: 18 px on Ashita 4.3, 14 px before that. On Ashita 4.3, a 36 px font draws HCrafter at 200% and 28 px at 155%. Before 4.3, 28 px draws it at 200%. Size and Text size adjust from there. Settings shows both numbers. Untick "Grow with Ashita's font size" to size HCrafter on its own.
 
 ## Install
 
@@ -203,7 +203,7 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 - It reads your equipped items, your buffs and your character's status from game memory.
 - It draws item and status icons from the pictures the game already has in memory, the way Ashita's equipmon addon does.
 - It plays `.wav` files with Ashita's sound function: from its own sounds folder, and the copies it makes in `config\addons\hcrafter\sounds`. It lists its sounds folder to find any sounds you add.
-- It reads the game's own sound effect files from your game folder, only the ones picked in Settings, to make those copies. To find the folder it asks Windows where the game's `FFXiMain.dll` was loaded from.
+- It reads the game's own sound effect files from your game folder, only the ones picked in Settings, to make those copies. To find the folder it asks Windows where the game's `FFXiMain.dll` was loaded from. To tell when a copy is out of date, it asks Windows for the size and last change time of the sound file it came from. It puts a finished copy in place with Windows' MoveFileEx, and names a copy it is still writing with its process id. It deletes only copies it made.
 - It makes no network connections.
 - It writes files only under `config\addons\hcrafter`. It reads its own Lua files in an empty environment, so a damaged file can only fail to load.
 - If one of its windows hits an error or leaves something open in imgui, HCrafter closes what that window had open, skips it for the frame and prints the problem once.

@@ -31,7 +31,7 @@
 
 addon.name    = 'hcrafter'
 addon.author  = 'lin (xitools crafty), HCrafter contributors'
-addon.version = '1.3.0'
+addon.version = '1.3.1'
 addon.desc    = 'Recipe book with sub-recipes, HQ odds, planner, skill-up ideas and fanfare. Based on xitools crafty.'
 
 require('common')
@@ -165,7 +165,8 @@ local defaults = T{
         noMore = T{ 'game:se034/se034012' },
         done = T{ 'game:se008/se008229' },
         short = T{ 'game:se035/se035131' },
-        -- optional: once you're in game, and when you log out or unload
+        -- optional: on load or login, when /hcrafter shows the book, and at
+        -- logout or unload
         startup = T{ '' },
         shutdown = T{ '' },
     },
@@ -260,10 +261,33 @@ app.Init(function() return config end, MarkDirty)
 fanfare.Config = function() return config end
 planui.OpenInBook = book.Open
 
+-- every sound picked in the settings in use
+local function PickedSounds()
+    local list = { }
+    for _, ref in pairs(config.sounds) do
+        if type(ref) == 'table' and type(ref[1]) == 'string' and ref[1] ~= '' then
+            list[#list + 1] = ref[1]
+        end
+    end
+    return list
+end
+
+-- the picked sounds get their files made a frame at a time, so the first
+-- alert plays at once
+local function WarmPicked()
+    local volume = fanfare.Volume()
+    for _, choice in ipairs(PickedSounds()) do
+        sounds.Warm(choice, volume)
+    end
+end
+
 settings.register('settings', 'hcrafter_settings_update', function(s)
     if s ~= nil then
         config = s
         Prepare(config)
+        -- at login this is your own character's settings: its sounds and
+        -- volume may differ from the ones HCrafter loaded with
+        WarmPicked()
     end
 
     settings.save()
@@ -282,13 +306,14 @@ local startupNext = false
 -- the shutdown sound from your own character's settings, kept every frame:
 -- at logout Ashita's settings library may switch to its default settings
 -- before HCrafter hears of the logout
-local farewell = nil
+local farewell = { on = false, choice = '', volume = 100 }
+local loggedIn = false
 session.OnChange(function(name, old)
     if name == nil and old ~= nil then
-        if farewell ~= nil and farewell.on then
+        if loggedIn and farewell.on then
             fanfare.PlayChoice('shutdown', farewell.choice, farewell.volume)
         end
-        farewell = nil
+        loggedIn = false
         startupNext = false
     elseif name ~= nil and old == nil then
         -- the next frame, once every handler has seen the login
@@ -663,13 +688,11 @@ ashita.events.register('load', 'hcrafter_load', function()
     -- fonts can only be added here, never in the middle of a frame
     text.Load()
     sounds.Refresh()
-    -- the game's sounds are turned into .wav files a frame at a time, so the
-    -- first alert plays at once
-    for _, ref in pairs(config.sounds) do
-        if type(ref) == 'table' then
-            sounds.Warm(ref[1], fanfare.Volume())
-        end
-    end
+    -- out-of-date copies go, and the folder keeps at most sounds.maxCopies.
+    -- at the title screen these are Ashita's default settings, so a
+    -- character's own copies are only ever trimmed oldest first.
+    sounds.Tidy(PickedSounds(), fanfare.Volume())
+    WarmPicked()
     session.OnLoad()
     -- loaded while you're in game: the startup sound plays right away, and
     -- only once
@@ -869,11 +892,10 @@ ashita.events.register('d3d_present', 'hcrafter_present', function()
     end
     if session.name ~= nil then
         local ref = config.sounds.shutdown
-        farewell = {
-            on = config.fanfare.sound[1] == true,
-            choice = type(ref) == 'table' and ref[1] or '',
-            volume = fanfare.Volume(),
-        }
+        farewell.on = config.fanfare.sound[1] == true
+        farewell.choice = type(ref) == 'table' and ref[1] or ''
+        farewell.volume = fanfare.Volume()
+        loggedIn = true
     end
 
     -- settings no longer hold the history, so a save here is small

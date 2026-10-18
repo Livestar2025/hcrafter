@@ -24,6 +24,7 @@
 --   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 --   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 local bit = require('bit')
+local wave = require('hc.wave')
 
 local spw = {
     -- the longest sound HCrafter converts, in samples per channel (10 s)
@@ -86,17 +87,9 @@ function spw.Header(data)
     return h
 end
 
-local function Clamp16(x)
-    if x > 32767 then
-        return 32767
-    elseif x < -32768 then
-        return -32768
-    end
-    return x
-end
-
 -- decodes a whole file into { rate, channels, samples, [1] = { ... }, [2] = { ... } }
--- with one table of whole-number samples per channel, or nil and why
+-- with the whole-number samples of each channel numbered from 1, or nil and
+-- why
 function spw.Decode(data)
     local h, why = spw.Header(data)
     if h == nil then
@@ -105,7 +98,7 @@ function spw.Decode(data)
     local out = { rate = h.rate, channels = h.channels, samples = h.samples, loops = h.loops }
     local n, nch = h.samples, h.channels
     for c = 1, nch do
-        out[c] = { }
+        out[c] = wave.NewSamples(n)
     end
     if h.codec == 1 then
         for s = 0, n - 1 do
@@ -126,6 +119,7 @@ function spw.Decode(data)
     -- take turns frame by frame.
     local per = h.blockAlign
     local frame = per / 2 + 1
+    local rshift, band, lshift, arshift = bit.rshift, bit.band, bit.lshift, bit.arshift
     for c = 1, nch do
         local dst = out[c]
         local h1, h2 = 0, 0
@@ -133,7 +127,7 @@ function spw.Decode(data)
         while f * per < n do
             local off = h.start + (f * nch + c - 1) * frame
             local head = data:byte(off + 1) or 0
-            local coef, shift = bit.rshift(head, 4), bit.band(head, 0x0F)
+            local coef, shift = rshift(head, 4), band(head, 0x0F)
             if coef > 4 then
                 coef = 0
             end
@@ -141,18 +135,33 @@ function spw.Decode(data)
                 shift = 9
             end
             local c0, c1 = COEFS[coef + 1][1], COEFS[coef + 1][2]
+            local down = 16 + shift
             local base = f * per
-            for i = 0, per - 1 do
-                if base + i >= n then
-                    break
+            local count = math.min(per, n - base)
+            -- two samples a byte, low nibble first. each nibble is moved to
+            -- the top of 32 bits, so the shift down sign-extends it.
+            local i = 0
+            while i < count do
+                local byte = data:byte(off + 2 + rshift(i, 1)) or 0
+                local smp = arshift(lshift(byte, 28), down) + arshift(c0 * h1 + c1 * h2, 6)
+                if smp > 32767 then
+                    smp = 32767
+                elseif smp < -32768 then
+                    smp = -32768
                 end
-                local byte = data:byte(off + 2 + bit.rshift(i, 1)) or 0
-                local nib = (i % 2 == 1) and bit.rshift(byte, 4) or bit.band(byte, 0x0F)
-                -- sign-extend the nibble into 16 bits, then shift down
-                local smp = bit.arshift(bit.lshift(nib, 28), 16 + shift)
-                smp = Clamp16(smp + bit.arshift(c0 * h1 + c1 * h2, 6))
                 dst[base + i + 1] = smp
                 h2, h1 = h1, smp
+                if i + 1 < count then
+                    smp = arshift(lshift(band(byte, 0xF0), 24), down) + arshift(c0 * h1 + c1 * h2, 6)
+                    if smp > 32767 then
+                        smp = 32767
+                    elseif smp < -32768 then
+                        smp = -32768
+                    end
+                    dst[base + i + 2] = smp
+                    h2, h1 = h1, smp
+                end
+                i = i + 2
             end
             f = f + 1
         end

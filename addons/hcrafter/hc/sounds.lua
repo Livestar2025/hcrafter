@@ -82,10 +82,22 @@ end
 local gameFolder = nil
 -- which game sounds are there, by id, since the last look
 local gamePresent = { }
--- sounds that couldn't be turned into a .wav file, until the next Refresh
+-- game sounds that couldn't be turned into a .wav file, until the next
+-- Refresh
 local failed = { }
--- .wav files waiting to be made, one a frame
+-- your own .wav files HCrafter can't rescale, by name, with the code of the
+-- file that failed: each plays as it is, without being read again, until
+-- the file changes
+local asIs = { }
+-- copies that couldn't be written, by sound: the code of the source and
+-- when. each plays HCrafter's fallback without being decoded again, and is
+-- tried again a minute later or after a Refresh.
+local unwritten = { }
+-- sounds waiting to be made, one a frame, in order, and the volume each is
+-- wanted at. asking again only changes the volume, so stepping the volume
+-- never piles up work.
 local queue = { }
+local wanted = { }
 
 local function Fs()
     return type(ashita) == 'table' and ashita.fs or nil
@@ -110,8 +122,8 @@ local function ModuleFolder(name)
     local ok, path = pcall(function()
         local ffi = require('ffi')
         pcall(ffi.cdef, [[
-            void* GetModuleHandleA(const char* lpModuleName);
-            uint32_t GetModuleFileNameA(void* hModule, char* lpFilename, uint32_t nSize);
+            void* __stdcall GetModuleHandleA(const char* lpModuleName);
+            uint32_t __stdcall GetModuleFileNameA(void* hModule, char* lpFilename, uint32_t nSize);
         ]])
         local module = ffi.C.GetModuleHandleA(name)
         if module == nil then
@@ -231,6 +243,7 @@ function sounds.Refresh()
     gameFolder = FindGame()
     gamePresent = { }
     failed = { }
+    unwritten = { }
     return #found
 end
 
@@ -308,87 +321,321 @@ function sounds.Options()
     return list
 end
 
--- the file HCrafter makes for a sound at a volume
-local function CacheName(choice, volume)
-    local id = sounds.GameId(choice)
-    if id ~= nil then
-        return ('%s-v%i.wav'):format(id:match('/(se%d+)$'), volume)
+-- the size and last change of a file, from Windows' own record of it, or
+-- nil when the file isn't there or is a folder. outside Windows only the
+-- size is known.
+local winStat = nil
+local function Stat(path)
+    if winStat ~= false then
+        local ok, size, hi, lo = pcall(function()
+            local ffi = require('ffi')
+            if winStat == nil then
+                pcall(ffi.cdef, [[
+                    typedef struct {
+                        uint32_t attributes;
+                        uint32_t created[2];
+                        uint32_t accessed[2];
+                        uint32_t written[2];
+                        uint32_t sizeHigh;
+                        uint32_t sizeLow;
+                    } hcrafter_file_info;
+                    int __stdcall GetFileAttributesExA(const char* name, int level, hcrafter_file_info* info);
+                ]])
+            end
+            local info = ffi.new('hcrafter_file_info')
+            if ffi.C.GetFileAttributesExA(path, 0, info) == 0 then
+                return false
+            end
+            -- FILE_ATTRIBUTE_DIRECTORY
+            if math.floor(tonumber(info.attributes) / 16) % 2 == 1 then
+                return false
+            end
+            return tonumber(info.sizeHigh) * 4294967296 + tonumber(info.sizeLow), tonumber(info.written[1]), tonumber(info.written[0])
+        end)
+        if ok then
+            winStat = true
+            if size == false then
+                return nil
+            end
+            return size, hi, lo
+        end
+        -- only a first call that fails means Windows' record can't be read
+        if winStat == nil then
+            winStat = false
+        end
     end
-    return ('own-%s-v%i.wav'):format(choice:gsub('%.[wW][aA][vV]$', ''), volume)
+    local file = io.open(path, 'rb')
+    if file == nil then
+        return nil
+    end
+    local size = file:seek('end')
+    file:close()
+    if type(size) ~= 'number' then
+        return nil
+    end
+    return size, 0, 0
 end
 
--- makes the .wav file for a sound at a volume, unless it is already there.
--- returns its path, or nil and why.
-local function Make(choice, volume)
-    local path = CacheFolder() .. '\\' .. CacheName(choice, volume)
-    if files.Exists(path) == true then
-        return path
+-- how many seconds ago a file was written, from the write time Stat gives
+-- (100 ns steps since 1601), or nil when the write time isn't known
+local function Age(hi, lo)
+    if hi == 0 and lo == 0 then
+        return nil
     end
-    local sound, why
+    return os.time() - ((hi * 4294967296 + lo) / 10000000 - 11644473600)
+end
+
+-- a short code for a file's size and last change, part of the name of each
+-- copy HCrafter makes, so a changed sound gets a new copy. nil when the file
+-- isn't there.
+local function Code(path)
+    local size, hi, lo = Stat(path)
+    if size == nil then
+        return nil
+    end
+    local h = size % 4294967296
+    h = (h * 31 + hi) % 4294967296
+    h = (h * 31 + lo) % 4294967296
+    return ('%04x%04x'):format(math.floor(h / 65536), h % 65536)
+end
+
+-- where a sound's own file is: the game's .spw file or the .wav file in the
+-- sounds folder, or nil
+local function Source(choice)
     local id = sounds.GameId(choice)
     if id ~= nil then
-        local data = files.ReadText(sounds.GamePath(id), true)
-        if data == nil then
-            return nil, 'can\'t open the game\'s file'
-        end
-        sound, why = spw.Decode(data)
-    else
-        local data = files.ReadText(Folder() .. choice, true)
-        if data == nil then
-            return nil, 'can\'t open the file'
-        end
-        sound, why = wave.Read(data)
+        return sounds.GamePath(id)
     end
-    if sound == nil then
-        return nil, why
+    local folder = Folder()
+    return folder and (folder .. choice) or nil
+end
+
+-- the copy HCrafter makes of a sound at a volume, from a file with a code:
+-- se043006-v80-1a2b3c4d.wav for a game sound, own-ready-v80-1a2b3c4d.wav for
+-- a .wav file
+local function CacheName(choice, volume, code)
+    local id = sounds.GameId(choice)
+    if id ~= nil then
+        return ('%s-v%i-%s.wav'):format(id:match('/(se%d+)$'), volume, code)
+    end
+    return ('own-%s-v%i-%s.wav'):format((choice:gsub('%.[wW][aA][vV]$', '')), volume, code)
+end
+
+-- true for the name of a copy HCrafter made: one of the above, one from
+-- 1.3.0 without a code, or a file a write left when the game closed
+-- partway. nothing else in the folder is ever deleted.
+local function Classify(name)
+    if type(name) ~= 'string' or name:find('[\\/:]') or name:find('..', 1, true) then
+        return nil
+    end
+    local lower = name:lower()
+    local stem = lower:match('^(.-)%.wav%.%w+%.tmp$')
+    if stem ~= nil then
+        if stem:match('^se%d%d%d%d%d%d%-v%d+%-%x%x%x%x%x%x%x%x$') or stem:match('^own%-.+%-v%d+%-%x%x%x%x%x%x%x%x$') then
+            return 'temp'
+        end
+        return nil
+    end
+    -- the name as it is, so your own file's name keeps its case
+    stem = name:match('^(.-)%.[wW][aA][vV]$')
+    if stem == nil then
+        return nil
+    end
+    local se, code = stem:lower():match('^(se%d%d%d%d%d%d)%-v%d+%-(%x%x%x%x%x%x%x%x)$')
+    if se ~= nil then
+        return 'copy', 'game:' .. se:sub(1, 5) .. '/' .. se, code
+    end
+    local own
+    own, code = stem:match('^[oO][wW][nN]%-(.+)%-[vV]%d+%-(%x%x%x%x%x%x%x%x)$')
+    if own ~= nil then
+        return 'copy', own .. '.wav', code:lower()
+    end
+    stem = stem:lower()
+    if stem:match('^se%d%d%d%d%d%d%-v%d+$') or stem:match('^own%-.+%-v%d+$') then
+        return 'old'
+    end
+    return nil
+end
+
+-- a name for a file being written that no other game window will pick:
+-- the Windows process id, or else an address that differs by process
+local token = nil
+local function Token()
+    if token == nil then
+        local ok, id = pcall(function()
+            local ffi = require('ffi')
+            pcall(ffi.cdef, 'uint32_t __stdcall GetCurrentProcessId(void);')
+            return tonumber(ffi.C.GetCurrentProcessId())
+        end)
+        if ok and type(id) == 'number' then
+            token = ('%x'):format(id)
+        else
+            token = tostring({ }):match('(%x+)$') or '0'
+        end
+    end
+    return token
+end
+
+-- gives a written file its own name in one step, replacing a damaged copy
+-- there, with Windows' MoveFileEx. nil when that can't be called.
+local function Replace(from, to)
+    local ok, done = pcall(function()
+        local ffi = require('ffi')
+        pcall(ffi.cdef, 'int __stdcall MoveFileExA(const char* from, const char* to, uint32_t flags);')
+        -- MOVEFILE_REPLACE_EXISTING
+        return ffi.C.MoveFileExA(from, to, 1) ~= 0
+    end)
+    if ok then
+        return done
+    end
+    return nil
+end
+
+-- writes a copy in full under another name, then gives it its own name, so
+-- a crash or a full disk never leaves a short copy under the real name.
+-- parts are written in order. returns true when a whole copy is there.
+local function WriteCopy(path, ...)
+    local temp = ('%s.%s.tmp'):format(path, Token())
+    local file = io.open(temp, 'wb')
+    if file == nil then
+        return false
+    end
+    local wrote = file:write(...)
+    local closed = file:close()
+    if wrote and closed then
+        if wave.Whole(path) then
+            -- another game window made it in the meantime
+            pcall(os.remove, temp)
+            return true
+        end
+        local replaced = Replace(temp, path)
+        if replaced == nil then
+            -- without MoveFileEx: a rename fails onto a file that is there
+            pcall(os.remove, path)
+            local ok, renamed = pcall(os.rename, temp, path)
+            replaced = ok and renamed ~= nil and renamed ~= false
+        end
+        if replaced then
+            return true
+        end
+    end
+    pcall(os.remove, temp)
+    -- another game window may have won the race with a whole copy
+    return wave.Whole(path)
+end
+
+-- makes the copy of a sound at a volume, unless a whole one is there.
+-- returns its path, or nil and why: 'gone' when the source can't be opened.
+local function Make(choice, volume, source, code)
+    local path = CacheFolder() .. '\\' .. CacheName(choice, volume, code)
+    if wave.Whole(path) then
+        return path
     end
     local fs = Fs()
     if fs == nil or type(fs.create_dir) ~= 'function' then
         return nil, 'no folder'
     end
+    local data = files.ReadText(source, true)
+    if data == nil then
+        return nil, 'gone'
+    end
+    local sound, why
+    if sounds.GameId(choice) ~= nil then
+        sound, why = spw.Decode(data)
+    else
+        sound, why = wave.Read(data)
+    end
+    if sound == nil then
+        return nil, why
+    end
     pcall(fs.create_dir, files.BaseDir())
     pcall(fs.create_dir, CacheFolder())
-    local file = io.open(path, 'wb')
-    if file == nil then
+    if not WriteCopy(path, wave.Parts(sound, volume / 100)) then
         return nil, 'can\'t write'
     end
-    file:write(wave.Write(sound, volume / 100))
-    file:close()
     return path
 end
 
--- the file to play for a sound at a volume, or nil and why. a game sound
--- is turned into a .wav file the first time; any sound at a volume other
--- than 100 gets a copy at that volume.
+-- a sound's file is gone since the folder was last read
+local function Gone(choice)
+    local id = sounds.GameId(choice)
+    if id ~= nil then
+        gamePresent[id] = false
+    elseif present ~= nil then
+        present[choice:lower()] = nil
+    end
+    return nil, 'missing'
+end
+
+-- the file to play for a sound at a volume, or nil and why. the sound's own
+-- file is checked each time, so one that went missing never reaches
+-- Windows, which would play its own sound instead. a game sound is turned
+-- into a .wav file the first time. any sound at a volume other than 100
+-- gets a copy at that volume.
 function sounds.PathFor(choice, volume)
     volume = sounds.Volume(volume)
     if volume <= 0 then
         return nil, 'volume 0'
     end
-    if not sounds.Valid(choice) or not sounds.Exists(choice) then
+    if not sounds.Valid(choice) then
+        return nil, 'missing'
+    end
+    local id = sounds.GameId(choice)
+    if id ~= nil and not sounds.GameFolder() then
         return nil, 'missing'
     end
     if failed[choice] then
         return nil, 'unreadable'
     end
-    local id = sounds.GameId(choice)
-    local folder = Folder()
-    if id == nil and folder == nil then
-        return nil, 'no sounds folder'
+    local source = Source(choice)
+    local code = source and Code(source)
+    if code == nil then
+        return Gone(choice)
     end
-    if id == nil and volume == 100 then
-        return folder .. choice
+    if id ~= nil then
+        gamePresent[id] = true
+    elseif present ~= nil then
+        present[choice:lower()] = true
     end
-    local path, why = Make(choice, volume)
+    if id == nil and (volume == 100 or asIs[choice] == code) then
+        return source
+    end
+    local last = unwritten[choice]
+    if last ~= nil and last.code == code and last.volume == volume and os.time() - last.at < 60 then
+        if id == nil then
+            return source
+        end
+        return nil, 'can\'t write'
+    end
+    local path, why = Make(choice, volume, source, code)
     if path ~= nil then
         return path
     end
-    if id == nil then
-        -- a sound HCrafter can't rescale plays as it is
-        return folder .. choice
+    if why == 'gone' then
+        return Gone(choice)
     end
-    failed[choice] = true
+    -- a write that failed is tried again in a minute
+    local writing = why == 'can\'t write' or why == 'no folder'
+    if writing then
+        unwritten[choice] = { code = code, volume = volume, at = os.time() }
+    end
+    if id == nil then
+        if not writing then
+            asIs[choice] = code
+        end
+        -- a sound HCrafter can't rescale plays as it is
+        return source
+    end
+    if not writing then
+        failed[choice] = true
+    end
     return nil, why
+end
+
+-- true when one of your own .wav files plays at its own volume because
+-- HCrafter can't rescale it (see wave.Read for what it can)
+function sounds.AsIs(choice)
+    return type(choice) == 'string' and asIs[choice] ~= nil
 end
 
 -- play a sound at a volume (100 when left out). returns true when Ashita
@@ -403,26 +650,136 @@ function sounds.Play(choice, volume)
     return ok
 end
 
--- get a sound's file ready ahead of time, so the first alert plays at once
+-- get a sound's file ready ahead of time, so its first alert plays at once
 function sounds.Warm(choice, volume)
     volume = sounds.Volume(volume)
-    if volume > 0 and sounds.Valid(choice) and (sounds.GameId(choice) ~= nil or volume ~= 100) then
-        queue[#queue + 1] = { choice, volume }
+    if volume <= 0 or not sounds.Valid(choice) or (sounds.GameId(choice) == nil and volume == 100) then
+        -- nothing to make at this volume: a job asked for before goes too
+        if wanted[choice] ~= nil then
+            wanted[choice] = nil
+            for i = #queue, 1, -1 do
+                if queue[i] == choice then
+                    table.remove(queue, i)
+                end
+            end
+        end
+        return
     end
+    if wanted[choice] == nil then
+        queue[#queue + 1] = choice
+    end
+    wanted[choice] = volume
 end
 
 -- call once a frame: makes at most one waiting file
 function sounds.Tick()
-    local job = table.remove(queue, 1)
-    if job ~= nil then
-        sounds.PathFor(job[1], job[2])
+    local choice = table.remove(queue, 1)
+    if choice == nil then
+        return false
     end
-    return job ~= nil
+    local volume = wanted[choice]
+    wanted[choice] = nil
+    sounds.PathFor(choice, volume)
+    return true
 end
 
 -- how many files are waiting to be made
 function sounds.Waiting()
     return #queue
+end
+
+-- the most copies the folder keeps. more go, oldest first, except the
+-- ones in use.
+sounds.maxCopies = 40
+
+-- tidies the folder of copies. it deletes copies from 1.3.0, files a write
+-- left more than ten minutes ago, and copies whose source changed or is
+-- gone. past maxCopies, the oldest copies go too, except those of the
+-- sounds given at the volume given. other characters and game windows
+-- sharing the folder lose nothing they can't get back: a copy is made again
+-- when it is needed. a copy Windows is playing stays until the next time.
+-- returns how many went.
+function sounds.Tidy(choices, volume)
+    local fs = Fs()
+    if fs == nil or type(fs.get_directory) ~= 'function' then
+        return 0
+    end
+    volume = sounds.Volume(volume)
+    local keep = { }
+    for _, choice in ipairs(choices or { }) do
+        if sounds.Valid(choice) and (sounds.GameId(choice) == nil or sounds.GameFolder()) then
+            local source = Source(choice)
+            local code = source and Code(source)
+            if code ~= nil then
+                keep[CacheName(choice, volume, code):lower()] = true
+            end
+        end
+    end
+    local folder = CacheFolder()
+    local ok, list = pcall(fs.get_directory, folder .. '\\', '.*')
+    if not ok or type(list) ~= 'table' then
+        return 0
+    end
+    local removed = 0
+    local function Remove(name)
+        local done, result = pcall(os.remove, folder .. '\\' .. name)
+        if done and result then
+            removed = removed + 1
+            return true
+        end
+        return false
+    end
+    local codes = { }
+    local copies = { }
+    for _, name in pairs(list) do
+        local kind, choice, code = Classify(name)
+        if kind == 'old' then
+            Remove(name)
+        elseif kind == 'temp' then
+            -- another game window may be writing it right now
+            local size, hi, lo = Stat(folder .. '\\' .. name)
+            local age = size and Age(hi, lo)
+            if size ~= nil and (age == nil or age > 600) then
+                Remove(name)
+            end
+        elseif kind == 'copy' then
+            -- with no game folder a game sound's copy can't be checked
+            local stale = false
+            if sounds.GameId(choice) == nil or sounds.GameFolder() then
+                local current = codes[choice]
+                if current == nil then
+                    local source = Source(choice)
+                    current = source and Code(source) or false
+                    codes[choice] = current
+                end
+                stale = current ~= code
+            end
+            if stale then
+                Remove(name)
+            elseif not keep[name:lower()] then
+                local _, hi, lo = Stat(folder .. '\\' .. name)
+                copies[#copies + 1] = { name = name, age = hi and Age(hi, lo) or 0 }
+            end
+        end
+    end
+    local inUse = 0
+    for _ in pairs(keep) do
+        inUse = inUse + 1
+    end
+    local extra = #copies + inUse - sounds.maxCopies
+    if extra > 0 then
+        -- oldest first, then by name
+        table.sort(copies, function(a, b)
+            if a.age ~= b.age then
+                return a.age > b.age
+            end
+            return a.name < b.name
+        end)
+        for i = 1, math.min(extra, #copies) do
+            Remove(copies[i].name)
+        end
+    end
+    return removed
 end
 
 return sounds

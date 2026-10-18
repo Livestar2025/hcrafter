@@ -23,3 +23,9 @@ the game or anywhere else are used. They ship under HCrafter's license.
 Pick the sound for each alert in the recipe book, under Settings, Fanfare
 and sounds. Your own .wav files in this folder show up in those lists too.
 Set the volume there, or turn every sound off with "Play sounds".
+
+Your own files follow the volume when they are PCM (8, 16, 24 or 32-bit)
+or 32-bit float, mono or stereo, and up to 10 seconds long at 48 kHz.
+Others play at their own volume. HCrafter keeps at most 40 copies in
+config\addons\hcrafter\sounds, deleting the oldest first but never the
+ones in use, and deletes copies whose sound file changed.
