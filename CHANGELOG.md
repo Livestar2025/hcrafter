@@ -2,6 +2,11 @@
 
 ## 1.4.0 (2026-10-18)
 
+### No synth lists
+
+- The numbered synth lists are gone: "Synths, in order" in the Resource Planner and "Make, in order" in the Shopping list. A recipe can't be made before its materials anyway, and a numbered list could read like a queue for the addon to run. HCrafter has never run a synth. It only reads and shows, and you start every synth yourself.
+- The planner says "plan" where it said "queue", such as "Nothing planned yet."
+
 ### A new recipe table
 
 - The table is rebuilt from LandSandBoat's recipe list (commit 0f71d5a7, 2026-10-18) with AirSkyBoat's craft levels (commit 6aaefe35), instead of the copy xitools shipped from a 2022 AirSkyBoat snapshot.
@@ -14,7 +19,7 @@
 - Loudspeaker II, Stabilizer II and the white and black puppet turbans are left out. HorizonXI removed them or they can't be crafted there.
 - `tools/regen_recipes.py` rebuilds the table from the upstream SQL and the fixes file.
 - A desynthesis is still named by its main result, now from LandSandBoat's desynthesis rows.
-- 22 recipe ids now make another item id, with the same materials and crystal. 23001 and 23003 now make Auto-Repair Kit II and Tension Spring II, as their names say, where the old table had Auto-Repair Kit and Tension Spring. The other 20 are automaton attachments that now make the item of the same name under its other id. Strobe II is the only one of those 20 up to ToAU. History keeps their recipe, and if the server still makes the old item, a synth still counts as that recipe.
+- 22 recipe ids now make another item id, with the same materials and crystal. 23001 and 23003 now make Auto-Repair Kit II and Tension Spring II, as their names say, where the old table had Auto-Repair Kit and Tension Spring. The other 20 are automaton attachments that now make the item of the same name under its other id. Strobe II is the only one of those 20 up to ToAU. History keeps their recipe, and if the server still makes an attachment's old item id, a synth still counts as that recipe.
 
 ### Recipes from after ToAU
 
@@ -26,7 +31,7 @@
 - The recipe you make an item with is kept by its id, so a new table or the era setting can't swap it for another. So is the recipe picked under a material in the book.
 - A recipe you picked before 1.4.0 is found from its place in the item's list as the old table had it. If that recipe is gone or now makes another item, the easiest one stands in.
 - When the recipe you picked is hidden, the easiest one shown stands in.
-- Queued recipes the table no longer has leave the queue, and the planner button counts only the recipes it lists. An Auto-Repair Kit or Tension Spring queued with recipe 23001 or 23003 moves to the easiest recipe for that item, and joins its entry if that recipe is queued already. The 20 attachments stay queued.
+- Planned recipes the table no longer has leave the plan, and the planner button counts only the recipes it lists. An Auto-Repair Kit or Tension Spring planned with recipe 23001 or 23003 moves to the easiest recipe for that item, and joins its entry if that recipe is planned already. The 20 attachments stay in the plan.
 
 ### Tests
 
@@ -204,13 +209,13 @@ First release. Built from the crafty component of xitools v0.26 by lin (GPL-3.0)
 
 ### Resource Planner
 
-- Queue recipes, set synth counts, pick Buy or Make per material, see items to buy in stacks, synths in order, leftovers, key items and odds. (This was the shopping list.)
+- Plan recipes, set synth counts, pick Buy or Make per material, see items to buy in stacks, synths in order, leftovers, key items and odds. (This was the shopping list.)
 - Costs from your prices, with an estimated total.
 - Skill-up tab: recipes ranked Optimal, Costly or Dangerous for a craft, an estimate of synths to a target level, your rank cap, a choice of break rule, and the option to use your own measured skill-up rate.
 
 ### Shopping list
 
-- A quest-tracker style list over the game for your queue.
+- A quest-tracker style list over the game for your plan.
 - The ready cue for your next `/lastsynth`: a countdown, then a toast and a sound when the next synth should go through, or what ran out. It never presses anything.
 - How good your last recipe still is for skill-ups.
 

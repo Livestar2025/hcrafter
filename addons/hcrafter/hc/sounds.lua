@@ -93,10 +93,10 @@ local asIs = { }
 -- when. each plays HCrafter's fallback without being decoded again, and is
 -- tried again a minute later or after a Refresh.
 local unwritten = { }
--- sounds waiting to be made, one a frame, in order, and the volume each is
--- wanted at. asking again only changes the volume, so stepping the volume
--- never piles up work.
-local queue = { }
+-- sound files waiting to be made, one a frame, oldest first, and the volume
+-- each is wanted at. asking again only changes the volume, so stepping
+-- the volume never piles up work.
+local toMake = { }
 local wanted = { }
 
 local function Fs()
@@ -657,23 +657,23 @@ function sounds.Warm(choice, volume)
         -- nothing to make at this volume: a job asked for before goes too
         if wanted[choice] ~= nil then
             wanted[choice] = nil
-            for i = #queue, 1, -1 do
-                if queue[i] == choice then
-                    table.remove(queue, i)
+            for i = #toMake, 1, -1 do
+                if toMake[i] == choice then
+                    table.remove(toMake, i)
                 end
             end
         end
         return
     end
     if wanted[choice] == nil then
-        queue[#queue + 1] = choice
+        toMake[#toMake + 1] = choice
     end
     wanted[choice] = volume
 end
 
 -- call once a frame: makes at most one waiting file
 function sounds.Tick()
-    local choice = table.remove(queue, 1)
+    local choice = table.remove(toMake, 1)
     if choice == nil then
         return false
     end
@@ -685,7 +685,7 @@ end
 
 -- how many files are waiting to be made
 function sounds.Waiting()
-    return #queue
+    return #toMake
 end
 
 -- the most copies the folder keeps. more go, oldest first, except the

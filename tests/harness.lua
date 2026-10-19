@@ -949,6 +949,19 @@ local function endFrame()
     elseif #S.frame.dupes > 0 then why = 'duplicate ids, e.g. ' .. S.frame.dupes[1] end
     return S.frame, why
 end
+-- words that would make the planner read like a queue of synths for the
+-- addon to run. HCrafter never synthesizes, so no frame may draw them.
+local queueWords = { }
+local function ScanQueueWords(f)
+    local function Look(s)
+        local low = tostring(s):lower()
+        if low:find('queue', 1, true) or low:find('in order', 1, true) then
+            queueWords[#queueWords + 1] = tostring(s)
+        end
+    end
+    for _, t in ipairs(f.texts) do Look(t.text) end
+    for _, s in ipairs(f.widgetTexts) do Look(s) end
+end
 local function frame(keep)
     beginFrame(keep)
     local ok, err = pcall(fire, 'd3d_present')
@@ -958,6 +971,7 @@ local function frame(keep)
     end
     local f, why = endFrame()
     if not ok then why = 'd3d_present error: ' .. tostring(err) end
+    ScanQueueWords(f)
     S.frame = nil
     return f, why
 end
@@ -1802,7 +1816,8 @@ check(hasText(f, '7 singles, or 1 stack (5 spare)', 'hcrafter.planner') and hasT
 -- prices so far: earth 130, wind 95, log 900, namtar 2500, leather 450
 check(hasText(f, '380 g', 'hcrafter.planner') and hasText(f, 'Estimated cost: 40,290 gil', 'hcrafter.planner'),
     '4 wind crystals at 95 cost 380, and the whole list 40,290: ' .. tostring(hasTextLike(f, 'Estimated cost', 'hcrafter.planner')))
-check(hasText(f, 'Synths, in order', 'hcrafter.planner') and hasTextLike(f, '12 synths, makes 12, queued', 'hcrafter.planner') ~= nil, 'the synth order ends with the queued Inferno Sabots')
+check(hasText(f, 'To buy', 'hcrafter.planner') and not hasText(f, 'Synths, in order', 'hcrafter.planner') and hasTextLike(f, 'synths, makes', 'hcrafter.planner') == nil,
+    'the planner lists what to buy and no numbered list of synths')
 
 S.click = { 'plan.others' }
 f, why = frame(true)
@@ -2722,23 +2737,24 @@ do
         'a hand-edited NaN place counts as the first recipe in the old list, with no error')
     check(config.planner.make[650] == 20016 and recipes.byId[20020] ~= nil and recipes.byId[20020].result == 650,
         'a hand-edited place past the end of the old list stays on its last recipe, as before 1.4.0, though the new list is longer: ' .. tostring(config.planner.make[650]))
-    local queued = { }
-    for _, entry in ipairs(config.planner.entries) do queued[#queued + 1] = tostring(entry.recipeId) end
-    check(table.concat(queued, ',') == '22511,62052,' .. recipes.Options(12987)[1].id and #app.PlanEntries() == 3
+    local planned = { }
+    for _, entry in ipairs(config.planner.entries) do planned[#planned + 1] = tostring(entry.recipeId) end
+    check(table.concat(planned, ',') == '22511,62052,' .. recipes.Options(12987)[1].id and #app.PlanEntries() == 3
         and recipes.MadeBefore(62052) ~= nil and recipes.Easiest(recipes.MadeBefore(62052)) == nil,
-        'the queue: an id that now makes another item moves to a recipe for its old item, an attachment whose item id was only corrected stays, and recipes the table lost go: ' .. table.concat(queued, ','))
-    -- a queued id saved as text (a hand edit) is kept as a number
+        'the plan: an id that now makes another item moves to a recipe for its old item, an attachment whose item id was only corrected stays, and recipes the table lost go: ' .. table.concat(planned, ','))
+    -- a planned id saved as text (a hand edit) is kept as a number
     config.planner.entries = T{ T{ recipeId = '22511', synths = T{ 1 } } }
     settingsStub.callbacks[1](config)
     check(config.planner.entries[1] ~= nil and config.planner.entries[1].recipeId == 22511 and #app.PlanEntries() == 1,
-        'a queued recipe id saved as text is kept as a number, so the planner lists it')
-    -- a synth count that isn't a table of one number (a hand edit)
-    config.planner.entries = T{ T{ recipeId = 22511, synths = 3 }, T{ recipeId = 22503 }, T{ recipeId = 62050, synths = T{ 0 / 0 } } }
+        'a planned recipe id saved as text is kept as a number, so the planner lists it')
+    -- a synth count that isn't a table of one number from 1 to 9999 (a hand edit)
+    config.planner.entries = T{ T{ recipeId = 22511, synths = 3 }, T{ recipeId = 22503 }, T{ recipeId = 62050, synths = T{ 0 / 0 } },
+        T{ recipeId = recipes.Options(12987)[1].id, synths = T{ 1e9 } } }
     settingsStub.callbacks[1](config)
     config.book.visible[1] = true
     config.book.tab[1] = 1
     local fSynths, whySynths = frame(true)
-    local function QueueCounts()
+    local function PlanCounts()
         local ok, text = pcall(function()
             local out = { }
             for _, entry in ipairs(app.PlanEntries()) do out[#out + 1] = entry.recipe.id .. 'x' .. entry.synths end
@@ -2746,16 +2762,16 @@ do
         end)
         return ok and text or ('error: ' .. tostring(text))
     end
-    check(whySynths == nil and QueueCounts() == '22511x3,22503x1,62050x1',
-        'a queued synth count saved as a bare number, left out or not a number becomes a count the book and planner can draw: ' .. QueueCounts() .. (whySynths and (' ' .. whySynths) or ''))
-    -- a 1.3.x queue with both recipes of an item that moves
+    check(whySynths == nil and PlanCounts() == '22511x3,22503x1,62050x1,' .. recipes.Options(12987)[1].id .. 'x9999',
+        'a planned synth count saved as a bare number, left out, not a number or too big becomes a count the book and planner can draw: ' .. PlanCounts() .. (whySynths and (' ' .. whySynths) or ''))
+    -- a 1.3.x plan with both recipes of an item that moves
     config.planner.make = T{ }
     config.version = 3
     config.planner.entries = T{ T{ recipeId = 22511, synths = T{ 2 } }, T{ recipeId = 23001, synths = T{ 5 } },
         T{ recipeId = 22503, synths = T{ 1 } }, T{ recipeId = 23003, synths = T{ 1 } }, T{ recipeId = ' 22503 ', synths = T{ 9999 } } }
     settingsStub.callbacks[1](config)
-    check(QueueCounts() == '22511x7,22503x9999',
-        'a recipe queued twice after the move becomes one entry with both counts, at most 9999: ' .. QueueCounts())
+    check(PlanCounts() == '22511x7,22503x9999',
+        'a recipe planned twice after the move becomes one entry with both counts, at most 9999: ' .. PlanCounts())
     config.planner.entries = T{ }
     -- with no materials in the result, an NQ of the item a recipe made
     -- before 1.4.0 keeps the guessed recipe
@@ -2777,9 +2793,18 @@ do
         synthEffect(0)
         synthResult(12987)
         local other = history.Latest()
+        -- Tension Spring, 23003's old item, has a recipe of its own (22503),
+        -- so a Tension Spring answer can't vouch for a 23003 guess
+        local spring2 = recipes.byId[23003]
+        advance(100)
+        startSynth(spring2.ingredients, spring2.crystal)
+        synthEffect(0)
+        synthResult(2239)
+        local spring = history.Latest()
         check(recipes.MadeBefore(62052) == 8457 and old ~= nil and old.item == 8457 and old.recipe == 62052 and new.item == 9032 and new.recipe == 62052
-            and other.item == 12987 and other.recipe == nil,
-            'with no materials in the result, Strobe II made as its old item id or its new one keeps its recipe, and another item drops the guess')
+            and other.item == 12987 and other.recipe == nil and recipes.MadeBefore(23003) == 2239 and recipes.Easiest(2239).id == 22503
+            and spring.item == 2239 and spring.recipe == nil,
+            'with no materials in the result, Strobe II made as its old item id or its new one keeps its recipe, and another item, or an old item another recipe makes, drops the guess')
         history.Clear()
     end
     check(recipes.ForEntry({ item = 2262, recipe = 23001 }) == recipes.byId[23001] and recipes.ForEntry({ item = 17372, recipe = '4' }) == recipes.byId[4]
@@ -3905,9 +3930,9 @@ print("== the game's own sounds")
     while soundsMod.Tick() do end
     check(config.soundVolume[1] == 100 and #Copies('se043006-v100') >= 1, 'stepping back plays from the copies at 100: ' .. Listing())
     soundsMod.Warm('ready.wav', 90)
-    local queued = soundsMod.Waiting()
+    local waiting = soundsMod.Waiting()
     soundsMod.Warm('ready.wav', 100)
-    check(queued == 1 and soundsMod.Waiting() == 0, 'a sound queued for a volume that then needs no copy leaves the queue')
+    check(waiting == 1 and soundsMod.Waiting() == 0, 'a sound waiting for a volume that then needs no copy leaves the warm-up list')
     config.sounds.hq[1] = 'game:se041/se041147'
     config.sounds.hqBig[1] = 'game:se037/se037067'
     S.click = { 'book.sound.levelUp' }
@@ -4203,6 +4228,8 @@ do
     end
     check(finite, 'craft levels stay finite numbers after random packets')
 end
+
+check(#queueWords == 0, 'no window ever says "queue" or "in order"' .. (queueWords[1] and (': ' .. queueWords[1]) or ''))
 
 print(failures == 0 and 'ALL OK' or ('FAILURES: ' .. failures))
 cleanup()

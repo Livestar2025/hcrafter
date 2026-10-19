@@ -8,12 +8,14 @@ HCrafter is based on the crafty component of [xitools](https://github.com/mousse
 
 HCrafter has not been approved for HorizonXI. Check the server's approved addon list before you use it there.
 
+HCrafter does no automation. It never starts a synth, never presses a key or a macro, and never sends anything to the server. It reads what the game shows and draws its windows. You start every synth yourself.
+
 ## Windows
 
 | Window | What it is |
 |---|---|
 | HCrafter | The recipe book, with Recipes, History and Settings tabs |
-| Resource Planner | What to buy and make for the recipes you queue, plus a Skill-up tab |
+| Resource Planner | What to buy, and what to make yourself, for the recipes you plan, plus a Skill-up tab |
 | Shopping list | A small list over the game, like a quest tracker, that also counts your /lastsynth macro |
 
 Drag the bottom right corner of a window to resize it. The recipe book and the Resource Planner change width and height. The Shopping list changes width only. Double-click the corner to go back to the default size. HCrafter keeps each window's place and size.
@@ -62,7 +64,6 @@ The plan then shows:
 
 - Every item to buy, with what you hold, how many to buy, and how to buy them in stacks, such as "2 stacks + 3, or 3 stacks (9 spare)."
 - What each item costs, and an estimated total, for items with a price.
-- Every synth to do, deepest step first, with what each makes, what is left over, and your HQ odds.
 - Any key items the plan needs.
 
 Notes on the math:
@@ -71,7 +72,7 @@ Notes on the math:
 - What you already hold is used once per item, before that item's own materials are counted.
 - Your other bags count by default. Your other characters count only if you tick that box.
 - "Extra for breaks" adds that percentage of extra synths at every step, rounded up.
-- You can queue several recipes. Shared materials are added together.
+- You can plan several recipes at once. Shared materials are added together.
 
 ### Skill-up tab
 
@@ -88,10 +89,9 @@ The skill-up numbers follow LandSandBoat's era rules: about 60 percent per good 
 
 ## Shopping list
 
-The Shopping list is a small list over the game for your queued recipes:
+The Shopping list is a small list over the game for the recipes you plan:
 
 - What to buy, with a bar for what you hold.
-- What to make, in order, with the craft and HQ tier.
 - How far your `/lastsynth` macro is, such as "2 of 6 synths done."
 - How good your last recipe still is for skill-ups, such as "Skill-up: Optimal, 2 levels to go."
 
@@ -200,7 +200,7 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 
 ## Safety
 
-- HCrafter only reads. It never sends packets and never acts for you.
+- HCrafter only reads and shows. It never starts a synth, never presses a key or a macro, never sends packets and never acts for you.
 - It reads incoming packets for synth results, skill-ups, craft levels and ranks, "You must wait longer," zoning and inventory loading. It also reads the outgoing synth request, the same way xitools crafty does.
 - It reads your equipped items, your buffs and your character's status from game memory.
 - It draws item and status icons from the pictures the game already has in memory, the way Ashita's equipmon addon does.

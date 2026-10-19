@@ -124,7 +124,7 @@ end
 -- the Resource Planner
 ---------------------------------------------------------------------------
 
--- queue a recipe and open the Resource Planner
+-- add a recipe to the Resource Planner and open it
 function app.AddToPlan(recipe)
     local plan = app.Config().planner
     plan.visible[1] = true
@@ -183,7 +183,7 @@ function app.Have(itemId)
     return held
 end
 
--- the queued recipes that still exist: { { recipe, synths, entry }, ... }
+-- the planned recipes that still exist: { { recipe, synths, entry }, ... }
 function app.PlanEntries()
     local list = { }
     for _, entry in ipairs(app.Config().planner.entries) do
@@ -195,7 +195,7 @@ function app.PlanEntries()
     return list
 end
 
--- the plan worked out from the queue, at most once a frame
+-- the plan worked out from the planned recipes, at most once a frame
 function app.PlanResult()
     if planCache.frame == app.frameNo and planCache.result ~= nil then
         return planCache.result, planCache.entries

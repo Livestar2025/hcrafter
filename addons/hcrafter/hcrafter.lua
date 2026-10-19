@@ -255,7 +255,7 @@ local function Prepare(cfg)
                 make[itemId] = recipes.IdForOption(itemId, number)
             end
         end
-        -- a queued recipe whose id now makes another item moves to the
+        -- a planned recipe whose id now makes another item moves to the
         -- easiest recipe for the item it made, when one is left. ids whose
         -- old item nothing makes now (attachments whose item id was
         -- corrected to the same-named item) stay as they are.
@@ -271,10 +271,10 @@ local function Prepare(cfg)
         end
         cfg.version = 4
     end
-    -- queued recipes the table no longer has go. an id saved as text is
+    -- planned recipes the table no longer has go. an id saved as text is
     -- kept as a number, the way the planner looks it up. a synth count that
     -- isn't a number from 1 to 9999 (a hand edit) is brought into that
-    -- range. a recipe queued twice, which the move above can do, becomes
+    -- range. a recipe planned twice, which the move above can do, becomes
     -- one entry with both counts.
     local entries = cfg.planner and cfg.planner.entries
     if type(entries) == 'table' then
@@ -569,15 +569,18 @@ local function OnSynthResult(e)
 
     -- what the result says was made beats the guess from the request. with
     -- no materials listed, an NQ item that isn't the guessed recipe's
-    -- result means the guess was for another request. the item the recipe
-    -- made in the table before 1.4.0 still counts as its result, in case
-    -- the server makes that one.
+    -- result means the guess was for another request. an attachment's old
+    -- item id from before 1.4.0 still counts as its result, in case the
+    -- server makes that one. that holds only when no other recipe makes the
+    -- old item, so it can't stand for another request.
     local named = RecipeFromResult(synth)
     if named ~= nil then
         UseRecipe(named)
     elseif inProgSynth.result == 0 and synth.item ~= 29695 and inProgSynth.recipe ~= nil then
         local guessed = recipes.byId[inProgSynth.recipe]
-        if guessed ~= nil and guessed.result ~= synth.item and recipes.MadeBefore(guessed.id) ~= synth.item then
+        local before = guessed ~= nil and recipes.MadeBefore(guessed.id) or nil
+        local oldItem = before == synth.item and recipes.Easiest(before) == nil
+        if guessed ~= nil and guessed.result ~= synth.item and not oldItem then
             inProgSynth.recipe = nil
             inProgSynth.estimate = nil
             inProgSynth.before = { }

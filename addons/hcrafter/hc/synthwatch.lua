@@ -28,7 +28,7 @@ local st = {
     answeredAt = nil,
     -- the last answer was a synth that used materials: check them
     check = false,
-    -- what the last request needs, in order: { { id, count }, ... }
+    -- the crystal and materials the last request used: { { id, count }, ... }
     request = nil,
     -- the alert count, as of the last frame
     every = 6,

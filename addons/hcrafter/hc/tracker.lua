@@ -1,7 +1,7 @@
--- the Shopping list: a light, quest-tracker style list of what to buy and
--- what to make for your Resource Planner queue, how far your /lastsynth
--- macro is, and how good your last synth still is for skill-ups. part of
--- HCrafter, GPL-3.0.
+-- the Shopping list: a light, quest-tracker style list of what to buy for
+-- the recipes in your Resource Planner, how far your /lastsynth macro is,
+-- and how good your last synth still is for skill-ups. it only shows. part
+-- of HCrafter, GPL-3.0.
 require('common')
 local bit = require('bit')
 local imgui = require('imgui')
@@ -25,7 +25,6 @@ local tracker = {
     -- fits what it shows.
     limits = { defaultW = 320, minW = 260, maxW = 720, widthOnly = true },
     maxBuy = 10,
-    maxMake = 8,
 }
 
 local col = theme.col
@@ -221,55 +220,6 @@ function tracker.Draw()
                 cy = cy + h
             end
             cy = cy + Px(6)
-        end
-
-        -- make
-        local makes = { }
-        for _, row in ipairs(result.made) do
-            if row.synths > 0 then
-                table.insert(makes, { id = row.id, recipe = row.recipe, synths = row.synths })
-            end
-        end
-        for _, row in ipairs(result.top) do
-            table.insert(makes, { id = row.recipe.result, recipe = row.recipe, synths = row.synths })
-        end
-        if #makes > 0 then
-            text.Draw(dl, 'Make, in order', cx, cy, col(theme.gold), Px(13), true)
-            cy = cy + Px(20)
-            for index, row in ipairs(makes) do
-                if index > tracker.maxMake or (index > 1 and cy + Px(26) > bottom) then
-                    text.Draw(dl, text.Fit(('and %i more'):format(#makes - index + 1), Px(12), false, iw), cx, cy, col(theme.textDim), Px(12))
-                    cy = cy + Px(18)
-                    break
-                end
-                local h = Px(26)
-                text.Draw(dl, tostring(index), cx, cy + Px(3), col(theme.textMuted), Px(13), true)
-                local icon = Px(20)
-                ui.Slot(dl, cx + Px(16), cy, icon, row.id, theme.slotBorder)
-                local estimate = app.Estimate(row.recipe)
-                local tier = '-'
-                local tierRgb = theme.textDim
-                if estimate ~= nil and not estimate.unknown then
-                    if estimate.underCap then
-                        tier = ('%i under'):format(-estimate.margin)
-                        tierRgb = theme.amber
-                    else
-                        tier = estimate.tier.name
-                        tierRgb = estimate.ring and theme.amber or theme.gold
-                    end
-                end
-                local tierW = text.Width(tier, Px(12.5))
-                local nx = cx + Px(16) + icon + Px(8)
-                local label = ('%s x%i'):format(items.ShortName(row.id), row.synths)
-                text.Draw(dl, text.Fit(label, Px(13), false, iw - (nx - cx) - tierW - Px(30)), nx, cy + Px(3), col(0xFFFFFF), Px(13))
-                local main = recipes.MainCraft(row.recipe)
-                if main ~= nil then
-                    ui.Emblem(dl, cx + iw - tierW - Px(22), cy + Px(2), Px(16), main)
-                end
-                text.DrawRight(dl, tier, cx + iw, cy + Px(4), col(tierRgb), Px(12.5))
-                cy = cy + h
-            end
-            cy = cy + Px(4)
         end
     end
 
