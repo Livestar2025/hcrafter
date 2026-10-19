@@ -1,5 +1,96 @@
 # Changelog
 
+## 1.4.0 (2026-10-18)
+
+### No synth lists
+
+- The numbered synth lists are gone: "Synths, in order" in the Resource Planner and "Make, in order" in the Shopping list. A recipe can't be made before its materials anyway, and a numbered list could read like a queue for the addon to run. HCrafter has never run a synth. It only reads and shows, and you start every synth yourself.
+- The planner says "plan" where it said "queue", such as "Nothing planned yet."
+
+### A new recipe table
+
+- The table is rebuilt from LandSandBoat's recipe list (commit 0f71d5a7, 2026-10-18) with AirSkyBoat's craft levels (commit 6aaefe35), instead of the copy xitools shipped from a 2022 AirSkyBoat snapshot.
+- No recipe needs level 255 any more, such as Velvet Cuffs at Goldsmithing 255 (it is 15). The old table had 222 of those placeholders, 221 of them from upstream rows that servers don't load.
+- 170 recipes are gone: 162 that LandSandBoat disables, 4 it no longer has, and the 4 PUP recipes below.
+- 171 live recipes the old table lacked are in. 11 are from ToAU or before, such as Bronze Bed, Cornette and Love Chocolate. The other 160 are from after ToAU, so they show only with that setting on.
+- AirSkyBoat's levels are used because LandSandBoat moved to current retail levels in September 2026. In a check of 81 disputed levels against the HorizonXI wiki, LandSandBoat's recipes with AirSkyBoat's levels matched 60, and LandSandBoat's own levels 16.
+- HorizonXI's own changes go on top, each with its source in `tools/hxi_recipe_fixes.json`: 21 levels and one material list from a second check against the wiki, Chakram's and Bastokan Leggings' crystals, Bastokan Leggings' Brass Sheet and Goldsmithing 24, Silk Hat without Silk Cloth, Tonosama Rice Ball x2, Bone Cudgel at Bonecraft 38 and Smoked Salmon at Woodworking 9.
+- Automaton attachments up to ToAU yield 1 per synth, as on HorizonXI.
+- Loudspeaker II, Stabilizer II and the white and black puppet turbans are left out. HorizonXI removed them or they can't be crafted there.
+- `tools/regen_recipes.py` rebuilds the table from the upstream SQL and the fixes file.
+- A desynthesis is still named by its main result, now from LandSandBoat's desynthesis rows.
+- 22 recipe ids now make another item id, with the same materials and crystal. 23001 and 23003 now make Auto-Repair Kit II and Tension Spring II, as their names say, where the old table had Auto-Repair Kit and Tension Spring. The other 20 are automaton attachments that now make the item of the same name under its other id. Strobe II is the only one of those 20 up to ToAU. History keeps their recipe, and if the server still makes an attachment's old item id, a synth still counts as that recipe.
+
+### Recipes from after ToAU
+
+- Recipes from expansions after Treasures of Aht Urhgan are hidden by default: 1118 of the 3901. Tick "Recipes from after ToAU" in Settings, under Recipes, to list them in the book, the Resource Planner and the skill-up ideas.
+- A synth from any era is still recognized, and history keeps its recipe.
+
+### Resource Planner
+
+- The recipe you make an item with is kept by its id, so a new table or the era setting can't swap it for another. So is the recipe picked under a material in the book.
+- A recipe you picked before 1.4.0 is found from its place in the item's list as the old table had it. If that recipe is gone or now makes another item, the easiest one stands in.
+- When the recipe you picked is hidden, the easiest one shown stands in.
+- Planned recipes the table no longer has leave the plan, and the planner button counts only the recipes it lists. An Auto-Repair Kit or Tension Spring planned with recipe 23001 or 23003 moves to the easiest recipe for that item, and joins its entry if that recipe is planned already. The 20 attachments stay in the plan.
+
+### Install zip
+
+- The zip now carries the GPL-3.0 license text as `addons\hcrafter\LICENSE`.
+- The README explains how to update: unzip over the old version, then `/addon reload hcrafter`.
+
+### Tests
+
+- The harness's preview mode runs to the end again. Since 1.2.1 it stopped at the Shopping list scene.
+
+## 1.3.1 (2026-10-18)
+
+### Sound fixes from an independent review of 1.3.0
+
+- Your own sound file deleted while you play is never passed to Windows, which would play its own sound instead. It plays nothing and shows as missing, at any volume. A game file that goes missing plays HCrafter's own sound for that alert. A folder named like a sound counts as missing too.
+- Copies are written in full under a temporary name and then put in place in one step, so a crash or a full disk never leaves a short copy that plays as silence. A short or empty copy is made again. A copy that can't be written plays HCrafter's own sound and is tried again a minute later, instead of on every alert.
+- Each copy's name carries a code for the size and last change time of the file it came from. A sound file you replace, or one of HCrafter's sounds changed by an update, gets a new copy.
+- Turning a sound into a `.wav` file takes about a sixth of the time it did: 10 ms instead of 65 ms for a 7-second stereo sound, measured with 64-bit LuaJIT. It also leaves far less for Lua's garbage collector.
+- Stepping the volume asks for each sound once, at the last volume picked, instead of once per click.
+- When HCrafter loads and when you change the volume, it deletes copies from 1.3.0, copies whose sound file changed, and files a write left behind more than ten minutes ago. Past 40 copies it deletes the oldest first, never the ones in use. Copies at another character's volume stay, so nothing is made again at every login. Nothing else in the folder is touched.
+- The sounds of your own character's settings are made ahead of time when Ashita switches to them at login, not only when HCrafter loads. Before, a character with other sounds or another volume had each one made on its first alert.
+- Your own `.wav` files follow the volume in more formats: 8, 16, 24 and 32-bit PCM and 32-bit float, mono or stereo, up to 10 seconds at 48 kHz (480,000 samples), including WAVE_FORMAT_EXTENSIBLE files. Others play at their own volume, and Settings says so. A file HCrafter can't rescale isn't read again each time it plays.
+- With no game folder found, Settings marks FFXI sounds "(no game folder)" instead of "(missing)".
+- Settings now says startup also plays when you log in and when `/hcrafter` shows the book.
+
+## 1.3.0 (2026-10-18)
+
+### The game's own sounds
+
+- Each alert now plays one of FFXI's own sound effects by default, picked by ear for that alert. Breaks still play nothing by default.
+- HCrafter ships no game audio. It reads the sound from your own game folder (`SquareEnix\FINAL FANTASY XI\sound\win\se`, or wherever the game's `FFXiMain.dll` was loaded from) and keeps a `.wav` copy in `config\addons\hcrafter\sounds`.
+- It reads the game's PS-ADPCM and PCM sound files. The few in encrypted ATRAC3 are left alone. The reader gives the same samples as vgmstream.
+- 42 game sounds are in the lists: two sets picked by ear with one sound for each alert ("FFXI level-up", "FFXI level-up 2" and so on), plus 26 more named by folder and number, such as "FFXI 000-026".
+- When the game's folder or a sound file can't be found or read, the alert plays HCrafter's own sound for it instead, and Settings says so.
+- A game sound is turned into a `.wav` file once, a frame at a time after loading, so the first alert plays at once.
+
+### Startup and shutdown sounds
+
+- Two optional sounds, None by default, picked like the others in Settings.
+- Startup plays as HCrafter loads while you're in game, on the first frame after you log in, and when `/hcrafter` shows the recipe book.
+- Shutdown plays when you log out, or when HCrafter unloads while you're logged in. It uses your character's own choice even though Ashita switches to its default settings at logout.
+- [Inference] Closing the game without logging out may cut the shutdown sound short, since the game exits right away.
+
+### Right-click menu
+
+- The right-click menu and the sound list are bigger: their text is the size of recipe names, with more room around and between lines.
+- On Ashita builds with imgui before 1.92, which draw a font only at the size it was loaded, the menu's text is scaled to that size instead.
+- A long sound list scrolls instead of running off the screen.
+
+### Volume
+
+- One volume for every sound, from 0 to 150 percent in Settings. HCrafter's own sounds and your own `.wav` files follow it too, through a copy at that volume in `config\addons\hcrafter\sounds`.
+- At 0, nothing plays.
+
+### Settings carried over
+
+- A sound still at its 1.2.1 default moves to the game's sound for that alert, once. A sound you picked yourself stays.
+- Skill-up and No more skill-ups had no sound in 1.2.1, so they get the game's sound even if you had picked None. Pick None again to keep them quiet.
+
 ## 1.2.1 (2026-10-18)
 
 ### Size on big screens
@@ -123,13 +214,13 @@ First release. Built from the crafty component of xitools v0.26 by lin (GPL-3.0)
 
 ### Resource Planner
 
-- Queue recipes, set synth counts, pick Buy or Make per material, see items to buy in stacks, synths in order, leftovers, key items and odds. (This was the shopping list.)
+- Plan recipes, set synth counts, pick Buy or Make per material, see items to buy in stacks, synths in order, leftovers, key items and odds. (This was the shopping list.)
 - Costs from your prices, with an estimated total.
 - Skill-up tab: recipes ranked Optimal, Costly or Dangerous for a craft, an estimate of synths to a target level, your rank cap, a choice of break rule, and the option to use your own measured skill-up rate.
 
 ### Shopping list
 
-- A quest-tracker style list over the game for your queue.
+- A quest-tracker style list over the game for your plan.
 - The ready cue for your next `/lastsynth`: a countdown, then a toast and a sound when the next synth should go through, or what ran out. It never presses anything.
 - How good your last recipe still is for skill-ups.
 

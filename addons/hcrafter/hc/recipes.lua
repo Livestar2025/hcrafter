@@ -1,8 +1,31 @@
 -- recipe lookups shared by the recipe book, the Resource Planner and the
--- skill-up mode. the recipe table itself comes from xitools
--- (data/recipesBySkill.lua), and the skill names and search come from its
--- crafty component (lin, GPL-3.0). part of HCrafter, GPL-3.0.
+-- skill-up mode. the recipe table (data/recipesBySkill.lua) is built from
+-- LandSandBoat's recipes with AirSkyBoat's craft levels and HorizonXI's own
+-- changes (tools/regen_recipes.py). the skill names and search come from
+-- xitools' crafty component (lin, GPL-3.0). part of HCrafter, GPL-3.0.
 local recipesBySkill = require('data.recipesBySkill')
+
+-- recipes from expansions after Treasures of Aht Urhgan, by id. they are
+-- listed only when Settings asks for them.
+local laterIds = { }
+do
+    local ok, list = pcall(require, 'data.recipeEras')
+    if ok and type(list) == 'table' then
+        laterIds = list
+    end
+end
+
+-- what changed from the table before 1.4.0: each changed item's recipes in
+-- their old order, and the ids that made another item. used once, to carry
+-- old settings over.
+local moves = { options = { }, madeBefore = { } }
+do
+    local ok, list = pcall(require, 'data.recipeMoves')
+    if ok and type(list) == 'table' then
+        moves.options = type(list.options) == 'table' and list.options or { }
+        moves.madeBefore = type(list.madeBefore) == 'table' and list.madeBefore or { }
+    end
+end
 
 local recipes = {
     skillNames = {
@@ -41,11 +64,17 @@ local recipes = {
         [10] = 'Expert',
         [11] = 'Authority',
     },
+    -- the recipes the lists show: every era, or up to ToAU (see ShowLater)
     all = { },
-    byId = { },
     byResult = { },
-    usedIn = { },
     byCraft = { },
+    -- every recipe in the table, whatever the setting, and by id
+    every = { },
+    byId = { },
+    -- true when recipes from after ToAU are listed
+    showLater = false,
+    -- goes up each time the lists change, so a cache can tell
+    version = 0,
 }
 
 for craftId = 1, 8 do
@@ -116,37 +145,12 @@ for _, recipeList in ipairs(recipesBySkill) do
             end
             recipe.hxi = true
         end
-        table.insert(recipes.all, recipe)
+        recipe.later = laterIds[recipe.id] == true
+        table.insert(recipes.every, recipe)
         recipes.byId[recipe.id] = recipe
 
-        local options = recipes.byResult[recipe.result]
-        if options == nil then
-            options = { }
-            recipes.byResult[recipe.result] = options
-        end
-        table.insert(options, recipe)
-
-        local seen = { }
-        for _, ingredientId in ipairs(recipe.ingredients) do
-            if not seen[ingredientId] then
-                seen[ingredientId] = true
-                local uses = recipes.usedIn[ingredientId]
-                if uses == nil then
-                    uses = { }
-                    recipes.usedIn[ingredientId] = uses
-                end
-                table.insert(uses, recipe)
-            end
-        end
-
-        for skillId, skillLevel in ipairs(recipe.skills) do
-            if skillLevel > 0 and recipes.byCraft[skillId] ~= nil then
-                table.insert(recipes.byCraft[skillId], recipe)
-            end
-        end
-
-        -- the first recipe with a given crystal and materials wins, as in
-        -- the old lookup table
+        -- every era, so a synth is always recognized. the first recipe with
+        -- a given crystal and materials wins, as in the old lookup table.
         local byCrystal = byIngredients[recipe.crystal]
         if byCrystal == nil then
             byCrystal = { }
@@ -159,41 +163,168 @@ for _, recipeList in ipairs(recipesBySkill) do
     end
 end
 
--- every recipe a craft takes part in, lowest level for that craft first
+-- when several recipes make the same item, the easiest first: no key item,
+-- then the lowest skill requirement, then the lowest recipe id
+local function Easier(a, b)
+    local aNeedsKeyItem = a.keyItem > 0
+    local bNeedsKeyItem = b.keyItem > 0
+    if aNeedsKeyItem ~= bNeedsKeyItem then
+        return bNeedsKeyItem
+    end
+
+    local aSkill = recipes.MaxSkill(a)
+    local bSkill = recipes.MaxSkill(b)
+    if aSkill ~= bSkill then
+        return aSkill < bSkill
+    end
+
+    return a.id < b.id
+end
+
+-- every recipe that makes an item, any era, easiest first
+local everyOption = { }
+for _, recipe in ipairs(recipes.every) do
+    local options = everyOption[recipe.result]
+    if options == nil then
+        options = { }
+        everyOption[recipe.result] = options
+    end
+    table.insert(options, recipe)
+end
+for _, options in pairs(everyOption) do
+    table.sort(options, Easier)
+end
+
+-- every recipe a craft takes part in, any era, lowest level for that craft
+-- first
+local everyByCraft = { }
 for craftId = 1, 8 do
-    table.sort(recipes.byCraft[craftId], function(a, b)
+    local list = { }
+    for _, recipe in ipairs(recipes.every) do
+        if (recipe.skills[craftId] or 0) > 0 then
+            list[#list + 1] = recipe
+        end
+    end
+    table.sort(list, function(a, b)
         if a.skills[craftId] ~= b.skills[craftId] then
             return a.skills[craftId] < b.skills[craftId]
         end
         return a.id < b.id
     end)
+    everyByCraft[craftId] = list
 end
 
--- when several recipes make the same item, list the easiest one first: no key
--- item, then the lowest skill requirement, then the lowest recipe id
+local function Clear(list)
+    for key in pairs(list) do
+        list[key] = nil
+    end
+end
+
 local optionNumbers = { }
-for _, options in pairs(recipes.byResult) do
-    if #options > 1 then
-        table.sort(options, function(a, b)
-            local aNeedsKeyItem = a.keyItem > 0
-            local bNeedsKeyItem = b.keyItem > 0
-            if aNeedsKeyItem ~= bNeedsKeyItem then
-                return bNeedsKeyItem
-            end
 
-            local aSkill = recipes.MaxSkill(a)
-            local bSkill = recipes.MaxSkill(b)
-            if aSkill ~= bSkill then
-                return aSkill < bSkill
-            end
+-- fills the lists the book, the planner and the skill-up ideas use: every
+-- recipe, or only those up to ToAU. the tables are refilled in place, from
+-- lists already in order.
+local function Shown(recipe)
+    return recipes.showLater or not recipe.later
+end
 
-            return a.id < b.id
-        end)
+function recipes.ShowLater(on)
+    recipes.showLater = on == true
+    Clear(recipes.all)
+    Clear(recipes.byResult)
+    Clear(optionNumbers)
+    for _, recipe in ipairs(recipes.every) do
+        if Shown(recipe) then
+            table.insert(recipes.all, recipe)
+        end
     end
-
-    for optionNumber, recipe in ipairs(options) do
-        optionNumbers[recipe] = optionNumber
+    for craftId = 1, 8 do
+        local list = recipes.byCraft[craftId]
+        Clear(list)
+        for _, recipe in ipairs(everyByCraft[craftId]) do
+            if Shown(recipe) then
+                list[#list + 1] = recipe
+            end
+        end
     end
+    for result, every in pairs(everyOption) do
+        local options = nil
+        for _, recipe in ipairs(every) do
+            if Shown(recipe) then
+                options = options or { }
+                options[#options + 1] = recipe
+                optionNumbers[recipe] = #options
+            end
+        end
+        recipes.byResult[result] = options
+    end
+    recipes.version = recipes.version + 1
+end
+
+recipes.ShowLater(false)
+
+-- the easiest recipe that makes an item, up to ToAU when there is one, or
+-- nil when nothing makes it
+local function Easiest(itemId)
+    local options = everyOption[itemId]
+    if options == nil then
+        return nil
+    end
+    for _, recipe in ipairs(options) do
+        if not recipe.later then
+            return recipe
+        end
+    end
+    return options[1]
+end
+
+-- the id of the recipe that a setting from before 1.4.0 meant by a place in
+-- an item's recipe list, the list as it was then. when that recipe is gone
+-- or now makes something else, the easiest one stands in. nil when nothing
+-- makes the item.
+function recipes.IdForOption(itemId, number)
+    itemId = tonumber(itemId)
+    if itemId == nil or everyOption[itemId] == nil then
+        return nil
+    end
+    number = tonumber(number)
+    if number == nil or number ~= number then
+        number = 1
+    end
+    -- moves.options has the old list of every item whose list changed, so
+    -- a place past the old end stays on the old last recipe
+    local before = moves.options[itemId] or everyOption[itemId]
+    local place = math.max(1, math.min(#before, math.floor(number)))
+    local entry = before[place]
+    local id = type(entry) == 'table' and entry.id or entry
+    local recipe = recipes.byId[id]
+    if recipe ~= nil and recipe.result == itemId then
+        return id
+    end
+    local easiest = Easiest(itemId)
+    return easiest and easiest.id or nil
+end
+
+-- the item a recipe id made before 1.4.0 when it now makes another, or nil
+function recipes.MadeBefore(id)
+    return moves.madeBefore[tonumber(id) or -1]
+end
+
+-- the easiest recipe for an item, up to ToAU when there is one, any era
+function recipes.Easiest(itemId)
+    return Easiest(tonumber(itemId))
+end
+
+-- the recipe a history entry names, or nil. the entry's item is what the
+-- server said was made, an HQ item for an HQ, so it isn't checked against
+-- the recipe. an id whose result changed in 1.4.0 kept its materials and
+-- crystal, so it is still the recipe that was used.
+function recipes.ForEntry(entry)
+    if type(entry) ~= 'table' or entry.recipe == nil then
+        return nil
+    end
+    return recipes.byId[tonumber(entry.recipe) or -1]
 end
 
 -- the recipes that make an item, easiest first, or nil if it can't be crafted

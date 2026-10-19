@@ -147,7 +147,7 @@ function planner.Build(entries, choose, have, grouped, spare)
         end
     end
 
-    -- craft order: deepest steps first, the queued recipes last
+    -- materials before the recipes that use them, the planned recipes last
     table.sort(made, function(a, b)
         if a.level ~= b.level then
             return a.level > b.level

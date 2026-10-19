@@ -8,12 +8,14 @@ HCrafter is based on the crafty component of [xitools](https://github.com/mousse
 
 HCrafter has not been approved for HorizonXI. Check the server's approved addon list before you use it there.
 
+HCrafter does no automation. It never starts a synth, never presses a key or a macro, and never sends anything to the server. It reads what the game shows and draws its windows. You start every synth yourself.
+
 ## Windows
 
 | Window | What it is |
 |---|---|
 | HCrafter | The recipe book, with Recipes, History and Settings tabs |
-| Resource Planner | What to buy and make for the recipes you queue, plus a Skill-up tab |
+| Resource Planner | What to buy, and what to make yourself, for the recipes you plan, plus a Skill-up tab |
 | Shopping list | A small list over the game, like a quest tracker, that also counts your /lastsynth macro |
 
 Drag the bottom right corner of a window to resize it. The recipe book and the Resource Planner change width and height. The Shopping list changes width only. Double-click the corner to go back to the default size. HCrafter keeps each window's place and size.
@@ -30,6 +32,7 @@ Drag the bottom right corner of a window to resize it. The recipe book and the R
 - A material you can craft has an arrow. Click the row and its recipe opens underneath, as deep as the chain goes. When several recipes make it, pick Recipe 1, 2 or 3.
 - Hover any item to see every place it is, each other character's last save date, and its price if you set one.
 - Right-click any item to add its recipe to the Resource Planner or to set its price.
+- Recipes from expansions after Treasures of Aht Urhgan are hidden, since HorizonXI ends there. Tick "Recipes from after ToAU" in Settings to list them.
 
 ## HQ odds
 
@@ -61,7 +64,6 @@ The plan then shows:
 
 - Every item to buy, with what you hold, how many to buy, and how to buy them in stacks, such as "2 stacks + 3, or 3 stacks (9 spare)."
 - What each item costs, and an estimated total, for items with a price.
-- Every synth to do, deepest step first, with what each makes, what is left over, and your HQ odds.
 - Any key items the plan needs.
 
 Notes on the math:
@@ -70,7 +72,7 @@ Notes on the math:
 - What you already hold is used once per item, before that item's own materials are counted.
 - Your other bags count by default. Your other characters count only if you tick that box.
 - "Extra for breaks" adds that percentage of extra synths at every step, rounded up.
-- You can queue several recipes. Shared materials are added together.
+- You can plan several recipes at once. Shared materials are added together.
 
 ### Skill-up tab
 
@@ -87,10 +89,9 @@ The skill-up numbers follow LandSandBoat's era rules: about 60 percent per good 
 
 ## Shopping list
 
-The Shopping list is a small list over the game for your queued recipes:
+The Shopping list is a small list over the game for the recipes you plan:
 
 - What to buy, with a bar for what you hold.
-- What to make, in order, with the craft and HQ tier.
 - How far your `/lastsynth` macro is, such as "2 of 6 synths done."
 - How good your last recipe still is for skill-ups, such as "Skill-up: Optimal, 2 levels to go."
 
@@ -112,8 +113,22 @@ The alert only shows and sounds. It never presses your macro and never sends any
 - A banner for a break that lists what you lost. Breaks have no sound unless you pick one.
 - A toast when the recipe you repeat stops giving skill-ups.
 - Every skill-up can get a small banner too. It is off by default.
+- An optional startup sound when HCrafter loads while you're in game, when you log in, and when `/hcrafter` shows the recipe book, and an optional shutdown sound when you log out or unload HCrafter. Both are None by default. Closing the game without logging out may cut the shutdown sound short.
 
-Each one can be turned off in Settings. Each alert also has its own sound: pick one of HCrafter's ten sounds, one of your own `.wav` files, or None, and press Play to hear it. Put your own `.wav` files in `addons\hcrafter\sounds` and they show up in the lists. A picked file that is no longer there plays nothing and shows as missing. "Play sounds" turns every sound off. HCrafter's sounds were made for it from plain sine tones.
+Each one can be turned off in Settings. Each alert also has its own sound: one of the game's own sound effects, one of HCrafter's ten sounds, one of your own `.wav` files, or None. Press Play to hear it. "Play sounds" turns every sound off, and Volume sets the level of all of them from 0 to 150 percent.
+
+### The game's own sounds
+
+By default each alert plays one of FFXI's own sound effects, picked by ear for that alert. Breaks play nothing by default. The lists hold 42 game sounds: a second set picked for each alert, and 26 more named by folder and number. The list scrolls when it is taller than the screen allows.
+
+- HCrafter ships no game audio. It reads each sound from your own game folder, `SquareEnix\FINAL FANTASY XI\sound\win\se` inside your HorizonXI `Game` folder, or wherever the game's `FFXiMain.dll` was loaded from.
+- It turns the sound into a `.wav` file once and keeps it in `config\addons\hcrafter\sounds`, then plays that file. Changing the volume makes a copy at the new volume. HCrafter keeps at most 40 copies, deleting the oldest first but never the ones in use, and deletes copies whose sound file changed.
+- It reads the game's PS-ADPCM and PCM sound files, which are most of them. The few in encrypted ATRAC3 are left alone.
+- If your game folder or a sound can't be found or read, the alert plays HCrafter's own sound for it, and Settings marks it "(no game folder)", "(missing)" or "(can't read)".
+
+### Your own sounds
+
+Put your own `.wav` files in `addons\hcrafter\sounds` and they show up in the lists. A picked file that is no longer there plays nothing and shows as missing. They follow the volume when they are PCM (8, 16, 24 or 32-bit) or 32-bit float, mono or stereo, and up to 10 seconds long at 48 kHz. Others play at their own volume. HCrafter's own sounds were made for it from plain sine tones.
 
 ## Prices
 
@@ -144,18 +159,22 @@ The History tab keeps your last 500 synths with results, skill-ups and lost mate
 ## Settings
 
 - Look: Navy or Charcoal frame, opacity, size from 75 to 150 percent, text size from 80 to 130 percent, growing with Ashita's font size, game icons on or off, and the Tahoma font on or off. Size scales whole windows. Text size changes only the text. Without Tahoma or game icons, HCrafter draws its own.
-- Fanfare, the alert after your macro, a sound for each alert, and the Shopping list's opacity.
+- Fanfare, the alert after your macro, a sound for each alert, one volume for all of them, and the Shopping list's opacity.
 - Hide with the map open, in cutscenes, or with the game interface hidden.
+- Recipes from after ToAU, hidden by default.
 
 ### Size on big screens
 
-HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita boot `.ini`. HCrafter's 100% is drawn for Ashita's default size: 18 px on Ashita 4.3, 14 px before that. If you set Ashita's font to 36 px, HCrafter draws at 200%. At 28 px, it draws at 155%. Size and Text size adjust from there. Settings shows both numbers. Untick "Grow with Ashita's font size" to size HCrafter on its own.
+HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita boot `.ini`. HCrafter's 100% is drawn for Ashita's default size: 18 px on Ashita 4.3, 14 px before that. On Ashita 4.3, a 36 px font draws HCrafter at 200% and 28 px at 155%. Before 4.3, 28 px draws it at 200%. Size and Text size adjust from there. Settings shows both numbers. Untick "Grow with Ashita's font size" to size HCrafter on its own.
 
 ## Install
 
-1. Copy the `addons\hcrafter` folder into your Ashita `addons` folder. On HorizonXI that is `HorizonXI\Game\addons`.
-2. In game, type `/addon load hcrafter`.
-3. If you also run xitools, you can turn off its crafty component so you don't have two recipe windows.
+1. Download the newest `hcrafter-<version>.zip` from this repository's Releases page.
+2. Unzip it into your Ashita folder, so the files land in `addons\hcrafter`. On HorizonXI the Ashita folder is `HorizonXI\Game`. You can also copy the `addons\hcrafter` folder from this repository instead.
+3. In game, type `/addon load hcrafter`.
+4. If you also run xitools, you can turn off its crafty component so you don't have two recipe windows.
+
+To update, unzip the new version over the old one and type `/addon reload hcrafter`. Unzipping over it keeps any `.wav` files you added to `addons\hcrafter\sounds`. Your settings, history, prices and bag snapshots are in `config\addons\hcrafter`, so they stay as they are, and settings from an older version carry over.
 
 ## Commands
 
@@ -184,19 +203,21 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 
 ## Safety
 
-- HCrafter only reads. It never sends packets and never acts for you.
+- HCrafter only reads and shows. It never starts a synth, never presses a key or a macro, never sends packets and never acts for you.
 - It reads incoming packets for synth results, skill-ups, craft levels and ranks, "You must wait longer," zoning and inventory loading. It also reads the outgoing synth request, the same way xitools crafty does.
 - It reads your equipped items, your buffs and your character's status from game memory.
 - It draws item and status icons from the pictures the game already has in memory, the way Ashita's equipmon addon does.
-- It plays `.wav` files from its own sounds folder with Ashita's sound function. It lists that folder to find any sounds you add.
+- It plays `.wav` files with Ashita's sound function: from its own sounds folder, and the copies it makes in `config\addons\hcrafter\sounds`. It lists its sounds folder to find any sounds you add.
+- It reads the game's own sound effect files from your game folder, only the ones picked in Settings, to make those copies. To find the folder it asks Windows where the game's `FFXiMain.dll` was loaded from. To tell when a copy is out of date, it asks Windows for the size and last change time of the sound file it came from. It puts a finished copy in place with Windows' MoveFileEx, and names a copy it is still writing with its process id. It deletes only copies it made.
 - It makes no network connections.
 - It writes files only under `config\addons\hcrafter`. It reads its own Lua files in an empty environment, so a damaged file can only fail to load.
 - If one of its windows hits an error or leaves something open in imgui, HCrafter closes what that window had open, skips it for the frame and prints the problem once.
 
 ## Data and limits
 
-- The recipe table is the one xitools ships, which its authors generated from AirSkyBoat's recipe data. A recipe that differs on your server shows wrong here. Check the [HorizonXI wiki](https://horizonffxi.wiki/) when in doubt.
-- HCrafter changes the recipes HorizonXI is known to have changed: Sonic Belt needs Leathercraft 107.
+- The recipe table is built from [LandSandBoat](https://github.com/LandSandBoat/server)'s recipe list (commit 0f71d5a7, 2026-10-18), with the craft levels from [AirSkyBoat](https://github.com/AirSkyBoat/AirSkyBoat) (commit 6aaefe35) where AirSkyBoat has the recipe. LandSandBoat moved its levels to current retail in September 2026. AirSkyBoat's older levels match the HorizonXI wiki more often.
+- HorizonXI's own changes go on top: levels, crystals and materials checked against the HorizonXI wiki, automaton attachments up to ToAU yielding 1 per synth, Sonic Belt at Leathercraft 107, and the PUP recipes HorizonXI removed or that don't work (Loudspeaker II, Stabilizer II and both puppet turbans) left out.
+- `tools/regen_recipes.py` rebuilds the table, and `tools/hxi_recipe_fixes.json` lists each HorizonXI change with where it comes from. Sonic Belt's level is set in `hc/recipes.lua`. Where the wiki contradicts itself or says nothing, the AirSkyBoat level stands, so a recipe can still differ on HorizonXI. Check the [HorizonXI wiki](https://horizonffxi.wiki/) when in doubt.
 - LandSandBoat reports every HQ the same way, so HCrafter shows "HQ" rather than HQ1, HQ2 or HQ3 unless the server says which.
 - History names each synth from the crystal and materials the server lists in the result. A server that doesn't list them falls back to the synth you asked for, which can be wrong if you press a different recipe while the server lags.
 - HQ crystals are not counted toward the normal crystal of the same element.
@@ -209,7 +230,9 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 - The XIUI authors for the look HCrafter follows, and for the way XIUI loads fonts, outlines text and loads icons, which HCrafter's drawing code is modeled on.
 - atom0s and the Ashita team for Ashita and the equipmon addon, whose icon loading HCrafter follows.
 - Velyn for the memory signatures used to hide windows during cutscenes and with the game interface, by way of xitools.
-- The LandSandBoat team, whose server code is the source for the synth rules and the crafting gear list.
+- The LandSandBoat team, whose server code is the source for the synth rules and the crafting gear list, and whose recipe list the table is built from.
+- The AirSkyBoat team, whose craft levels the table uses.
+- The HorizonXI wiki editors, whose pages the HorizonXI changes come from.
 
 ## License
 

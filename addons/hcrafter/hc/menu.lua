@@ -11,6 +11,7 @@ local recipes = require('hc.recipes')
 local prices = require('hc.prices')
 local app = require('hc.app')
 local sounds = require('hc.sounds')
+local fanfare = require('hc.fanfare')
 local text = require('hc.text')
 local ui = require('hc.ui')
 
@@ -49,6 +50,17 @@ local function PopStyle()
     guard.PopStyleColor(10)
 end
 
+-- room around and between the menu's lines, in HCrafter's own scale
+local function PushSpacing()
+    guard.PushStyleVar(ImGuiStyleVar_WindowPadding, { ui.Px(12), ui.Px(9) })
+    guard.PushStyleVar(ImGuiStyleVar_ItemSpacing, { ui.Px(8), ui.Px(7) })
+    guard.PushStyleVar(ImGuiStyleVar_FramePadding, { ui.Px(7), ui.Px(4) })
+end
+
+local function PopSpacing()
+    guard.PopStyleVar(3)
+end
+
 local function SavePrice(itemId)
     local typed = priceText[1]:gsub('%s', '')
     local ok, why
@@ -81,9 +93,23 @@ function menu.Draw(windowKey)
     end
 
     PushStyle()
+    PushSpacing()
+    local shown = current[windowKey]
+    if shown ~= nil and shown.mode == 'sound' then
+        -- a long list of sounds scrolls instead of running off the screen
+        local maxH = 600
+        pcall(function()
+            maxH = math.max(ui.Px(200), imgui.GetIO().DisplaySize.y * 0.7)
+        end)
+        pcall(function()
+            if imgui.IsPopupOpen(id) then
+                imgui.SetNextWindowSizeConstraints({ 0, 0 }, { 100000, maxH })
+            end
+        end)
+    end
     if guard.BeginPopup(id) then
         -- the menu's text in the same font and size as the rest of HCrafter
-        local fontPushed = text.PushWidgetFont(ui.Px(13))
+        local fontPushed = text.PushWidgetFont(ui.Px(14))
         local open = current[windowKey]
         if open == nil then
             imgui.CloseCurrentPopup()
@@ -117,7 +143,13 @@ function menu.Draw(windowKey)
             -- picking a sound plays it, so you hear what you picked
             local ref = app.Config().sounds[open.key]
             imgui.TextDisabled(open.label)
+            local groupNames = { game = 'FFXI sounds', hcrafter = 'HCrafter\'s sounds', custom = 'Your sounds' }
+            local lastGroup = nil
             for index, option in ipairs(sounds.Options()) do
+                if option.group ~= nil and option.group ~= lastGroup then
+                    imgui.TextDisabled(groupNames[option.group] or '')
+                    lastGroup = option.group
+                end
                 local label = (option.label:gsub('[%%#]', ''))
                 if ref ~= nil and ref[1] == option.file then
                     label = label .. '  (now)'
@@ -127,7 +159,7 @@ function menu.Draw(windowKey)
                         ref[1] = option.file
                         app.Dirty()
                     end
-                    sounds.Play(option.file)
+                    fanfare.PlayChoice(open.key, option.file)
                 end
             end
         else
@@ -154,6 +186,7 @@ function menu.Draw(windowKey)
         end
         guard.EndPopup()
     end
+    PopSpacing()
     PopStyle()
 end
 

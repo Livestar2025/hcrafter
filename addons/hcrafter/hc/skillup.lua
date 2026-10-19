@@ -227,7 +227,7 @@ function skillup.Measured(craftId, list, currentSkill, cap)
     local chances, ups = 0, 0
     local high = Tenths(currentSkill) >= 500
     for _, entry in ipairs(list or { }) do
-        local recipe = entry.recipe and recipes.byId[entry.recipe] or nil
+        local recipe = recipes.ForEntry(entry)
         local skillupEntry = type(entry.skillup) == 'table' and entry.skillup[craftId] or nil
         if recipe ~= nil and skillupEntry ~= nil and skillupEntry.before ~= nil and entry.result ~= 1 then
             local before = skillupEntry.before

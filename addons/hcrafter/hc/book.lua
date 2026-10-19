@@ -19,6 +19,7 @@ local skillup = require('hc.skillup')
 local app = require('hc.app')
 local menu = require('hc.menu')
 local sounds = require('hc.sounds')
+local fanfareMod = require('hc.fanfare')
 
 local book = {
     width = 520,
@@ -35,7 +36,7 @@ local state = {
     filter = { '' },
     open = { },        -- recipe id -> true for open recipe cards
     expanded = { },    -- material path -> true
-    option = { },      -- material path -> chosen recipe number
+    option = { },      -- material path -> chosen recipe id
     lastFilter = nil,
 }
 
@@ -180,8 +181,13 @@ book.TierText = TierText
 
 local searchCache = { }
 local searchCacheSize = 0
+local searchVersion = nil
 
 local function FilterRecipes(filter, byMaterial)
+    -- the era setting changed the lists: start over
+    if searchVersion ~= recipes.version then
+        searchCache, searchCacheSize, searchVersion = { }, 0, recipes.version
+    end
     local key = (byMaterial and 'm|' or 'r|') .. filter
     local found = searchCache[key]
     if found ~= nil then
@@ -214,7 +220,7 @@ end
 local function RecentRecipes(limit)
     local list, seen = { }, { }
     for _, entry in ipairs(history.List()) do
-        local recipe = entry.recipe and recipes.byId[entry.recipe] or nil
+        local recipe = recipes.ForEntry(entry)
         if recipe == nil and entry.item ~= nil then
             local options = recipes.Options(entry.item)
             recipe = options and options[1] or nil
@@ -362,7 +368,13 @@ local function DrawSubRecipe(dl, x, y, w, itemId, options, key, path, depth)
     local innerW = w - indent - Px(12)
     y = y + Px(4)
 
-    local chosen = math.max(1, math.min(#options, state.option[key] or 1))
+    -- the pick is kept by recipe id, so the era switch can't swap it
+    local chosen = 1
+    for number, option in ipairs(options) do
+        if option.id == state.option[key] then
+            chosen = number
+        end
+    end
     if #options > 1 then
         -- "Recipe 1, Recipe 2" when they fit, plain numbers when they don't
         local labels, total = { }, 0
@@ -377,7 +389,7 @@ local function DrawSubRecipe(dl, x, y, w, itemId, options, key, path, depth)
         end
         local picked, segW, segH = ui.Segmented(dl, 'book.opt' .. key, innerX, y, labels, chosen)
         if picked ~= chosen then
-            state.option[key] = picked
+            state.option[key] = options[picked].id
             chosen = picked
         end
         y = y + segH + Px(4)
@@ -884,8 +896,12 @@ local function SoundRow(dl, x, y, w, labelW, key, label)
     ui.Outline(dl, bx, by, bx + bw, by + h, col(hovered and theme.goldDarker or theme.border), Px(3), 1)
     local g = Px(11)
     local label = sounds.Label(file)
-    if file ~= '' and not sounds.Exists(file) then
+    if sounds.GameId(file) ~= nil and not sounds.GameFolder() then
+        label = label .. ' (no game folder)'
+    elseif file ~= '' and not sounds.Exists(file) then
         label = label .. ' (missing)'
+    elseif sounds.Unreadable(file) then
+        label = label .. ' (can\'t read)'
     end
     local name = text.Fit(label, s, false, math.max(Px(10), bw - Px(16) - g - Px(4)))
     text.Draw(dl, name, bx + Px(8), by + (h - s) / 2 - 1, col(file == '' and theme.textDim or 0xFFFFFF), s)
@@ -897,7 +913,7 @@ local function SoundRow(dl, x, y, w, labelW, key, label)
         ui.Tip('Pick the sound for this alert')
     end
     if ui.Button(dl, 'book.soundplay.' .. key, x + w - playW, by, 'Play', { width = playW }) then
-        sounds.Play(file)
+        fanfareMod.PlayChoice(key, file)
     end
     return used
 end
@@ -1105,13 +1121,37 @@ local function DrawSettingsTab(dl, x, y, w)
     end
     y = y + ui.Paragraph(dl, x, y, w, 'One alert when that many synths in a row are done, or when you run out of a material. A pause of more than 25 seconds starts a new count. It only shows and sounds. It never presses your macro.', theme.textDim, Px(11.5)) + Px(8)
 
-    -- the sound for each alert
-    changed = ui.Checkbox(dl, 'book.ffsound', x, y, 'Play sounds', fanfare.sound)
+    -- the sound for each alert, and one volume for them all
+    changed, cw = ui.Checkbox(dl, 'book.ffsound', x, y, 'Play sounds', fanfare.sound)
     if changed then app.Dirty() end
-    y = y + math.max(Px(26), text.H(Px(13)) + Px(10))
+    local volumeLabelW = text.Width('Volume', Px(13)) + Px(10)
+    local vx, vy = x + cw + Px(24), y - Px(2)
+    if vx + volumeLabelW + stepW > x + w then
+        -- no room beside the checkbox: Volume gets its own line
+        y = y + math.max(Px(26), text.H(Px(13)) + Px(10))
+        vx, vy = x, y - Px(2)
+    end
+    text.Draw(dl, 'Volume', vx, vy + (stepH - Px(13)) / 2 - 1, col(fanfare.sound[1] and theme.textSoft or theme.textMuted), Px(13))
+    value, _, _, stepped = ui.Stepper(dl, 'book.volume', vx + volumeLabelW, vy, fanfareMod.Volume(), 0, 150, 10, percent)
+    if stepped then
+        cfg.soundVolume[1] = value
+        app.Dirty()
+        -- the picked sounds get their copies at the new volume ahead of
+        -- time, and the folder is kept to sounds.maxCopies
+        local picked = { }
+        for _, ref in pairs(cfg.sounds) do
+            if type(ref) == 'table' and type(ref[1]) == 'string' and ref[1] ~= '' then
+                picked[#picked + 1] = ref[1]
+                sounds.Warm(ref[1], value)
+            end
+        end
+        sounds.Tidy(picked, value)
+    end
+    y = y + math.max(Px(26), text.H(Px(13)) + Px(10), stepH + Px(4))
     local soundRows = {
         { 'levelUp', 'Level-up' }, { 'hq', 'HQ' }, { 'hqBig', 'Rare HQ' }, { 'breaks', 'Break' },
         { 'skillUp', 'Skill-up' }, { 'noMore', 'No more skill-ups' }, { 'done', 'Synths done' }, { 'short', 'Out of a material' },
+        { 'startup', 'Startup' }, { 'shutdown', 'Shutdown' },
     }
     local soundLabelW = 0
     for _, spec in ipairs(soundRows) do
@@ -1120,7 +1160,15 @@ local function DrawSettingsTab(dl, x, y, w)
     for _, spec in ipairs(soundRows) do
         y = y + SoundRow(dl, x, y, w, soundLabelW + Px(12), spec[1], spec[2]) + Px(4)
     end
-    y = y + Px(2) + ui.Paragraph(dl, x, y + Px(2), w, 'Your own .wav files in addons\\hcrafter\\sounds show up in these lists too.', theme.textDim, Px(11.5)) + Px(6)
+    local soundNote
+    y = y + ui.Paragraph(dl, x, y + Px(2), w, 'Startup plays when HCrafter loads while you\'re in game, when you log in, and when /hcrafter shows this book. Shutdown plays when you log out or unload HCrafter.', theme.textDim, Px(11.5)) + Px(4)
+    if sounds.GameFolder() then
+        soundNote = 'Sounds marked FFXI are the game\'s own. HCrafter reads them from your game folder and keeps a copy in config\\addons\\hcrafter\\sounds. It ships none of them.'
+    else
+        soundNote = 'HCrafter can\'t find your game\'s sound folder, so FFXI sounds play HCrafter\'s own instead.'
+    end
+    soundNote = soundNote .. ' Your own .wav files in addons\\hcrafter\\sounds show up in these lists too. They follow the volume when they are 8, 16, 24 or 32-bit PCM or 32-bit float, mono or stereo, and up to 10 seconds long at 48 kHz. Others play at their own volume.'
+    y = y + Px(2) + ui.Paragraph(dl, x, y + Px(2), w, soundNote, theme.textDim, Px(11.5)) + Px(6)
 
     -- shopping list
     y = y + ui.Section(dl, x, y, w, 'Shopping list') + Px(6)
@@ -1158,6 +1206,16 @@ local function DrawSettingsTab(dl, x, y, w)
         cx = cx + used + Px(16)
     end
     y = y + Px(30)
+
+    -- recipes from after ToAU
+    y = y + ui.Section(dl, x, y, w, 'Recipes') + Px(6)
+    changed = ui.Checkbox(dl, 'book.later', x, y, 'Recipes from after ToAU', cfg.laterRecipes)
+    if changed then
+        recipes.ShowLater(cfg.laterRecipes[1] == true)
+        app.Dirty()
+    end
+    y = y + Px(24)
+    y = y + ui.Paragraph(dl, x, y, w, 'HorizonXI ends with Treasures of Aht Urhgan, so recipes from later expansions are hidden. Tick this to list them too. Recipes HorizonXI removed are never listed.', theme.textDim, Px(11.5)) + Px(6)
 
     -- prices
     y = y + ui.Section(dl, x, y, w, 'Prices') + Px(6)
@@ -1252,7 +1310,7 @@ function book.Draw()
 
     local w = ui.WindowWidth(cfg.book, book.limits)
     local clicked, titleH = ui.TitleBar(dl, 'book', x, y, w, 'HCrafter', ui.BookGlyph, {
-        { key = 'planner', draw = ui.ListGlyph, badge = #cfg.planner.entries, tip = 'Resource Planner', active = cfg.planner.visible[1] },
+        { key = 'planner', draw = ui.ListGlyph, badge = #app.PlanEntries(), tip = 'Resource Planner', active = cfg.planner.visible[1] },
         { key = 'list', draw = ui.FlagGlyph, tip = 'Shopping list', active = cfg.tracker.visible[1] },
         { key = 'close', draw = ui.CrossGlyph, tip = 'Close' },
     })

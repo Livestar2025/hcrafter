@@ -1,6 +1,7 @@
--- the Resource Planner window: the Plan tab works out every synth and every
--- item to buy for your queued recipes, the Skill-up tab suggests recipes
--- for skilling up a craft. part of HCrafter, GPL-3.0.
+-- the Resource Planner window: the Plan tab works out what to buy and what
+-- to make yourself for the recipes you plan, the Skill-up tab suggests
+-- recipes for skilling up a craft. it only shows. you do every synth
+-- yourself. part of HCrafter, GPL-3.0.
 require('common')
 local imgui = require('imgui')
 local theme = require('hc.theme')
@@ -8,7 +9,6 @@ local text = require('hc.text')
 local ui = require('hc.ui')
 local items = require('hc.items')
 local recipes = require('hc.recipes')
-local hq = require('hc.hq')
 local stock = require('hc.stock')
 local history = require('hc.history')
 local prices = require('hc.prices')
@@ -184,7 +184,7 @@ local function DrawOptions(dl, x, y, w)
 end
 
 -- make-or-buy rows, nested the same way as the recipes. key is the path
--- from the queued entry, so every row has its own id even when the same
+-- from the planned entry, so every row has its own id even when the same
 -- material shows up in more than one place.
 local function DrawChoices(dl, x, y, w, recipe, path, depth, parentKey)
     local top = y
@@ -217,8 +217,8 @@ local function DrawChoices(dl, x, y, w, recipe, path, depth, parentKey)
             local selected = chosen ~= nil and 2 or 1
             local picked = ui.Segmented(dl, 'plan.mb' .. key, x + w - Px(110), y + (h - Px(22)) / 2, { 'Buy', 'Make' }, selected, { width = Px(55) })
             if picked ~= selected then
-                make[itemId] = picked == 2 and 1 or nil
-                chosen = make[itemId]
+                make[itemId] = picked == 2 and options[1].id or nil
+                chosen = make[itemId] and 1 or nil
                 app.Dirty()
             end
             if right then
@@ -245,7 +245,7 @@ local function DrawChoices(dl, x, y, w, recipe, path, depth, parentKey)
                         local label = text.Fit(OptionSummary(option), Px(12.5), false, w - (ox - x) - Px(24))
                         text.Draw(dl, label, ox + r * 2 + Px(8), y + (oh - Px(12.5)) / 2 - 1, col(number == chosen and theme.textSoft or theme.textMuted), Px(12.5))
                         if clicked then
-                            make[itemId] = number
+                            make[itemId] = option.id
                             chosen = number
                             app.Dirty()
                         end
@@ -354,61 +354,6 @@ local function DrawBuy(dl, x, y, w, result)
     return y - top
 end
 
-local function DrawSynths(dl, x, y, w, result)
-    local top = y
-    local rows = { }
-    for _, row in ipairs(result.made) do
-        table.insert(rows, { id = row.id, recipe = row.recipe, synths = row.synths, output = row.output, leftover = row.leftover })
-    end
-    for _, row in ipairs(result.top) do
-        table.insert(rows, { id = row.recipe.result, recipe = row.recipe, synths = row.synths, output = row.output, queued = true })
-    end
-
-    for index, row in ipairs(rows) do
-        local h = Px(40)
-        local _, hovered, right = ui.Hit(('plan.s%i'):format(index), x, y, w, h)
-        text.DrawCenter(dl, tostring(index), x + Px(8), y + (h - Px(13)) / 2 - 1, col(theme.textMuted), Px(13), true)
-        local slot = Px(32)
-        local sx = x + Px(20)
-        ui.Slot(dl, sx, y + (h - slot) / 2, slot, row.id, theme.slotBorder)
-        local nx = sx + slot + Px(10)
-        local estimate = app.Estimate(row.recipe)
-        local chip, rgb = book.TierText(estimate)
-        local chipW = chip and ui.ChipWidth(chip) or 0
-        local nameW = w - (nx - x) - chipW - Px(16)
-        local name = items.ShortName(row.id)
-        text.Draw(dl, text.Fit(name, Px(14), false, nameW - Px(26)), nx, y + Px(2), col(estimate and estimate.underCap and theme.amber or 0xFFFFFF), Px(14))
-        local main = recipes.MainCraft(row.recipe)
-        if main ~= nil then
-            local ex = nx + math.min(text.Width(name, Px(14)), nameW - Px(26)) + Px(6)
-            ui.Emblem(dl, ex, y + Px(2), Px(16), main)
-        end
-        local sub
-        if row.synths == 0 then
-            sub = 'covered by what you hold'
-        else
-            sub = ('%i synth%s, makes %i'):format(row.synths, row.synths == 1 and '' or 's', row.output)
-        end
-        if row.queued then
-            sub = sub .. ', queued'
-        elseif (row.leftover or 0) > 0 then
-            sub = ('%s, %i left over'):format(sub, row.leftover)
-        end
-        text.Draw(dl, text.Fit(sub, Px(12), false, nameW), nx, y + Px(21), col(theme.textMuted), Px(12))
-        if chip ~= nil then
-            ui.Chip(dl, x + w - chipW - Px(4), y + (h - Px(17)) / 2, chip, rgb)
-        end
-        if right then
-            menu.Request('plan', { itemId = row.id, recipes = recipes.Options(row.id) })
-        end
-        if hovered then
-            ItemTip(row.id, hq.Describe(estimate, recipes.skillNames))
-        end
-        y = y + h + Px(2)
-    end
-    return y - top
-end
-
 local function DrawKeyItems(dl, x, y, w, result)
     local list = { }
     for keyItem in pairs(result.keyItems) do
@@ -440,7 +385,7 @@ local function DrawPlanTab(dl, x, y, w)
     local top = y
     local result, entries = app.PlanResult()
     if #entries == 0 then
-        text.Draw(dl, 'Nothing queued yet.', x, y, col(theme.textSoft), Px(13.5))
+        text.Draw(dl, 'Nothing planned yet.', x, y, col(theme.textSoft), Px(13.5))
         return Px(20) + ui.Paragraph(dl, x, y + Px(20), w, 'Right-click a recipe in HCrafter and pick Add to Resource Planner.', theme.textDim, Px(12.5))
     end
 
@@ -461,8 +406,6 @@ local function DrawPlanTab(dl, x, y, w)
 
     y = y + ui.Section(dl, x, y, w, 'To buy') + Px(6)
     y = y + DrawBuy(dl, x, y, w, result) + Px(8)
-    y = y + ui.Section(dl, x, y, w, 'Synths, in order') + Px(6)
-    y = y + DrawSynths(dl, x, y, w, result) + Px(8)
     y = y + DrawKeyItems(dl, x, y, w, result)
 
     if next(result.loops) ~= nil then
@@ -507,7 +450,7 @@ local function Compute(craftId, target)
     local opts, ups, chances = SkillupOptions(craftId)
     local key = table.concat({
         craftId, app.Skill(craftId), target, opts.breakRule, tostring(opts.rate),
-        app.Gear(craftId), app.Support(craftId), tostring(app.Cap(craftId)),
+        app.Gear(craftId), app.Support(craftId), tostring(app.Cap(craftId)), recipes.version,
     }, '|')
     for c = 1, 8 do
         key = key .. '|' .. app.Skill(c) .. ':' .. app.Gear(c)

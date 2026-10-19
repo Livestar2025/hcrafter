@@ -31,7 +31,7 @@
 
 addon.name    = 'hcrafter'
 addon.author  = 'lin (xitools crafty), HCrafter contributors'
-addon.version = '1.2.1'
+addon.version = '1.4.0'
 addon.desc    = 'Recipe book with sub-recipes, HQ odds, planner, skill-up ideas and fanfare. Based on xitools crafty.'
 
 require('common')
@@ -80,8 +80,9 @@ local function PerCraft(value)
 end
 
 local defaults = T{
-    -- 2 since 1.2.1: breaks play no sound by default
-    version = 2,
+    -- 2 since 1.2.1: breaks play no sound by default. 3 since 1.3.0: the
+    -- game's own sounds by default
+    version = 4,
     book = T{
         visible = T{ true },
         pos = T{ 100, 100 },
@@ -128,6 +129,8 @@ local defaults = T{
     support = T{ 1 },
     autoSkills = T{ true },
     searchMaterials = T{ false },
+    -- recipes from expansions after ToAU, hidden by default
+    laterRecipes = T{ false },
     look = T{
         frame = T{ 1 },
         alpha = T{ 0.92 },
@@ -152,18 +155,25 @@ local defaults = T{
         enabled = T{ true },
         every = T{ 6 },
     },
-    -- the sound for each alert: a .wav file in the sounds folder, or ''
-    -- for none
+    -- the sound for each alert: one of the game's own sounds ('game:' and
+    -- its id under sound\win\se), a .wav file in the sounds folder, or ''
+    -- for none. Livestar picked the game sounds by ear.
     sounds = T{
-        levelUp = T{ 'levelup.wav' },
-        hq = T{ 'hq.wav' },
-        hqBig = T{ 'hq_big.wav' },
+        levelUp = T{ 'game:se043/se043006' },
+        hq = T{ 'game:se041/se041147' },
+        hqBig = T{ 'game:se037/se037067' },
         breaks = T{ '' },
-        skillUp = T{ '' },
-        noMore = T{ '' },
-        done = T{ 'ready.wav' },
-        short = T{ 'alert.wav' },
+        skillUp = T{ 'game:se044/se044177' },
+        noMore = T{ 'game:se034/se034012' },
+        done = T{ 'game:se008/se008229' },
+        short = T{ 'game:se035/se035131' },
+        -- optional: on load or login, when /hcrafter shows the book, and at
+        -- logout or unload
+        startup = T{ '' },
+        shutdown = T{ '' },
     },
+    -- the volume of every sound, in percent (0 to 150)
+    soundVolume = T{ 100 },
     skillup = T{
         craft = T{ 1 },
         target = T{ 0 },
@@ -220,6 +230,85 @@ local function Prepare(cfg)
         end
         cfg.version = 2
     end
+    -- 1.3.0 plays the game's own sounds by default. a sound still at its
+    -- 1.2.1 default moves to the new one. a sound you picked stays.
+    if (tonumber(cfg.version) or 1) < 3 then
+        local before = {
+            levelUp = 'levelup.wav', hq = 'hq.wav', hqBig = 'hq_big.wav', skillUp = '',
+            noMore = '', done = 'ready.wav', short = 'alert.wav',
+        }
+        for key, old in pairs(before) do
+            local ref = cfg.sounds[key]
+            if type(ref) == 'table' and ref[1] == old then
+                ref[1] = defaults.sounds[key][1]
+            end
+        end
+        cfg.version = 3
+    end
+    -- 1.4.0 keeps the recipe you make an item with by its id, so a new
+    -- recipe table or the era setting can't swap it for another. a number
+    -- saved before was a place in the item's recipe list as it was then.
+    if (tonumber(cfg.version) or 1) < 4 then
+        local make = cfg.planner and cfg.planner.make
+        if type(make) == 'table' then
+            for itemId, number in pairs(make) do
+                make[itemId] = recipes.IdForOption(itemId, number)
+            end
+        end
+        -- a planned recipe whose id now makes another item moves to the
+        -- easiest recipe for the item it made, when one is left. ids whose
+        -- old item nothing makes now (attachments whose item id was
+        -- corrected to the same-named item) stay as they are.
+        local entries = cfg.planner and cfg.planner.entries
+        if type(entries) == 'table' then
+            for _, entry in ipairs(entries) do
+                local before = type(entry) == 'table' and recipes.MadeBefore(entry.recipeId) or nil
+                local easiest = before ~= nil and recipes.Easiest(before) or nil
+                if easiest ~= nil then
+                    entry.recipeId = easiest.id
+                end
+            end
+        end
+        cfg.version = 4
+    end
+    -- planned recipes the table no longer has go. an id saved as text is
+    -- kept as a number, the way the planner looks it up. a synth count that
+    -- isn't a number from 1 to 9999 (a hand edit) is brought into that
+    -- range. a recipe planned twice, which the move above can do, becomes
+    -- one entry with both counts.
+    local entries = cfg.planner and cfg.planner.entries
+    if type(entries) == 'table' then
+        local first = { }
+        local i = 1
+        while i <= #entries do
+            local entry = entries[i]
+            local id = type(entry) == 'table' and tonumber(entry.recipeId) or nil
+            if id == nil or recipes.byId[id] == nil then
+                table.remove(entries, i)
+            else
+                local count = tonumber(type(entry.synths) == 'table' and entry.synths[1] or entry.synths)
+                if count == nil or count ~= count then
+                    count = 1
+                end
+                count = math.max(1, math.min(9999, math.floor(count)))
+                if first[id] ~= nil then
+                    local kept = first[id]
+                    kept.synths[1] = math.min(9999, kept.synths[1] + count)
+                    table.remove(entries, i)
+                else
+                    entry.recipeId = id
+                    if type(entry.synths) == 'table' then
+                        entry.synths[1] = count
+                    else
+                        entry.synths = T{ count }
+                    end
+                    first[id] = entry
+                    i = i + 1
+                end
+            end
+        end
+    end
+    recipes.ShowLater(cfg.laterRecipes[1] == true)
 end
 
 local config = settings.load(defaults)
@@ -238,10 +327,33 @@ app.Init(function() return config end, MarkDirty)
 fanfare.Config = function() return config end
 planui.OpenInBook = book.Open
 
+-- every sound picked in the settings in use
+local function PickedSounds()
+    local list = { }
+    for _, ref in pairs(config.sounds) do
+        if type(ref) == 'table' and type(ref[1]) == 'string' and ref[1] ~= '' then
+            list[#list + 1] = ref[1]
+        end
+    end
+    return list
+end
+
+-- the picked sounds get their files made a frame at a time, so the first
+-- alert plays at once
+local function WarmPicked()
+    local volume = fanfare.Volume()
+    for _, choice in ipairs(PickedSounds()) do
+        sounds.Warm(choice, volume)
+    end
+end
+
 settings.register('settings', 'hcrafter_settings_update', function(s)
     if s ~= nil then
         config = s
         Prepare(config)
+        -- at login this is your own character's settings: its sounds and
+        -- volume may differ from the ones HCrafter loaded with
+        WarmPicked()
     end
 
     settings.save()
@@ -250,6 +362,29 @@ end)
 -- each character has its own history file
 session.OnChange(function(name)
     history.Load(name)
+end)
+
+-- the startup sound plays as HCrafter loads while you're in game, on the
+-- first frame after you log in, and when /hcrafter shows the recipe book.
+-- the shutdown sound plays when you log out, or when HCrafter unloads while
+-- you're logged in.
+local startupNext = false
+-- the shutdown sound from your own character's settings, kept every frame:
+-- at logout Ashita's settings library may switch to its default settings
+-- before HCrafter hears of the logout
+local farewell = { on = false, choice = '', volume = 100 }
+local loggedIn = false
+session.OnChange(function(name, old)
+    if name == nil and old ~= nil then
+        if loggedIn and farewell.on then
+            fanfare.PlayChoice('shutdown', farewell.choice, farewell.volume)
+        end
+        loggedIn = false
+        startupNext = false
+    elseif name ~= nil and old == nil then
+        -- the next frame, once every handler has seen the login
+        startupNext = true
+    end
 end)
 
 local function Print(message)
@@ -317,9 +452,15 @@ local function OnStartSynth(e)
 
     local crystal = crystalMap[startSynth.crystal]
     local key = recipes.IngredientKey(ingredients)
-    local byCrystal = crystal and recipesByIngredients[crystal]
-    local target = (byCrystal and byCrystal[key]) or { itemId = 0, count = 0 }
     local recipe = crystal and recipes.ByIngredients(crystal, ingredients) or nil
+    local target
+    if recipe ~= nil then
+        target = { itemId = recipe.result, count = recipe.count }
+    else
+        -- not a recipe: a desynthesis, named by its main result
+        local byCrystal = crystal and recipesByIngredients[crystal]
+        target = (byCrystal and byCrystal[key]) or { itemId = 0, count = 0 }
+    end
 
     local before = { }
     if recipe ~= nil then
@@ -428,13 +569,18 @@ local function OnSynthResult(e)
 
     -- what the result says was made beats the guess from the request. with
     -- no materials listed, an NQ item that isn't the guessed recipe's
-    -- result means the guess was for another request.
+    -- result means the guess was for another request. an attachment's old
+    -- item id from before 1.4.0 still counts as its result, in case the
+    -- server makes that one. that holds only when no other recipe makes the
+    -- old item, so it can't stand for another request.
     local named = RecipeFromResult(synth)
     if named ~= nil then
         UseRecipe(named)
     elseif inProgSynth.result == 0 and synth.item ~= 29695 and inProgSynth.recipe ~= nil then
         local guessed = recipes.byId[inProgSynth.recipe]
-        if guessed ~= nil and guessed.result ~= synth.item then
+        local before = guessed ~= nil and recipes.MadeBefore(guessed.id) or nil
+        local oldItem = before == synth.item and recipes.Easiest(before) == nil
+        if guessed ~= nil and guessed.result ~= synth.item and not oldItem then
             inProgSynth.recipe = nil
             inProgSynth.estimate = nil
             inProgSynth.before = { }
@@ -619,12 +765,26 @@ ashita.events.register('load', 'hcrafter_load', function()
     -- fonts can only be added here, never in the middle of a frame
     text.Load()
     sounds.Refresh()
+    -- out-of-date copies go, and the folder keeps at most sounds.maxCopies.
+    -- at the title screen these are Ashita's default settings, so a
+    -- character's own copies are only ever trimmed oldest first.
+    sounds.Tidy(PickedSounds(), fanfare.Volume())
+    WarmPicked()
     session.OnLoad()
+    -- loaded while you're in game: the startup sound plays right away, and
+    -- only once
+    if session.name ~= nil then
+        startupNext = false
+        fanfare.Sound('startup')
+    end
     stock.LoadOthers()
     prices.Load(true)
 end)
 
 ashita.events.register('unload', 'hcrafter_unload', function()
+    if session.name ~= nil then
+        fanfare.Sound('shutdown')
+    end
     stock.OnUnload()
     history.Save()
     settings.save()
@@ -720,6 +880,9 @@ ashita.events.register('command', 'hcrafter_command', function(e)
 
     if verb == nil then
         config.book.visible[1] = not config.book.visible[1]
+        if config.book.visible[1] then
+            fanfare.Sound('startup')
+        end
     elseif verb == 'plan' or verb == 'planner' then
         config.planner.visible[1] = not config.planner.visible[1]
     elseif verb == 'list' then
@@ -797,6 +960,20 @@ ashita.events.register('d3d_present', 'hcrafter_present', function()
     icons.NewFrame()
     stock.Tick()
     history.Tick()
+    -- at most one game sound turned into a .wav file a frame. a file that
+    -- can't be made never stops the frame.
+    pcall(sounds.Tick)
+    if startupNext then
+        startupNext = false
+        fanfare.Sound('startup')
+    end
+    if session.name ~= nil then
+        local ref = config.sounds.shutdown
+        farewell.on = config.fanfare.sound[1] == true
+        farewell.choice = type(ref) == 'table' and ref[1] or ''
+        farewell.volume = fanfare.Volume()
+        loggedIn = true
+    end
 
     -- settings no longer hold the history, so a save here is small
     if dirtyAt ~= nil and os.clock() - dirtyAt > 5 then
