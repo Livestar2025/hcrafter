@@ -2,7 +2,7 @@
 -- skill-up mode. the recipe table (data/recipesBySkill.lua) is built from
 -- LandSandBoat's recipes with AirSkyBoat's craft levels and HorizonXI's own
 -- changes (tools/regen_recipes.py). the skill names and search come from
--- xitools' crafty component (lin, GPL-3.0). part of HCrafter, GPL-3.0.
+-- xitools' craft tool (lin, GPL-3.0). part of HCrafter, GPL-3.0.
 local recipesBySkill = require('data.recipesBySkill')
 
 -- recipes from expansions after Treasures of Aht Urhgan, by id. they are

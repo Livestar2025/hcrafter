@@ -3,9 +3,9 @@
 
 Reads sql/synth_recipes.sql from a LandSandBoat (LSB) checkout and writes
 recipesBySkill.lua and recipesByIngredients.lua in the Lua format and table
-shapes HCrafter loads (the files xitools crafty shipped). It refuses an
---out folder that is the --current one, so it never writes over what it
-reads.
+shapes HCrafter loads (the files the xitools craft tool shipped). It
+refuses an --out folder that is the --current one, so it never writes over
+what it reads.
 
 What it does:
   - reads the CREATE TABLE statement and maps columns by name, so a change in

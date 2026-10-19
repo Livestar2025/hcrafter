@@ -1,12 +1,16 @@
 # HCrafter
 
+> [!WARNING]
+> **Pending approval. HCrafter is not approved for HorizonXI yet.**
+> HorizonXI treats any addon that is not on its [approved addon list](https://horizonxi.com/addons) as prohibited. Don't use HCrafter on the live server until it is listed.
+
 A recipe book for Ashita v4 that looks like part of the game. It shows every recipe's skill levels and materials with the game's own item icons and guild emblems. Craftable materials open into their own recipes. It estimates your HQ odds, warns when image support would reach the next tier, plans what to buy and make, suggests recipes for skilling up, and cheers when something good happens.
 
-HCrafter is based on the crafty component of [xitools](https://github.com/mousseng/xitools) by lin, version 0.26. The same crafty code also ships unchanged in Aravix's xitools 0.27. HCrafter is released under the same license, GPL-3.0. Its look follows [XIUI](https://github.com/tirem/XIUI)'s gold-on-dark style.
+HCrafter is based on the craft tool of [xitools](https://github.com/mousseng/xitools) by lin, version 0.26. The same code also ships unchanged in Aravix's xitools 0.27. HCrafter is released under the same license, GPL-3.0. Its look follows [XIUI](https://github.com/tirem/XIUI)'s gold-on-dark style.
 
 ## Status on HorizonXI
 
-HCrafter has not been approved for HorizonXI. Check the server's approved addon list before you use it there.
+HCrafter is pending approval. It is not on HorizonXI's [approved addon list](https://horizonxi.com/addons) yet. HCrafter is its own addon, so the XITools entry on that list does not cover it. The full source is here for anyone to read, staff included.
 
 HCrafter does no automation. It never starts a synth, never presses a key or a macro, and never sends anything to the server. It reads what the game shows and draws its windows. You start every synth yourself.
 
@@ -169,10 +173,10 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 
 ## Install
 
-1. Download the newest `hcrafter-<version>.zip` from this repository's Releases page.
+1. Download the newest `hcrafter-<version>.zip` from this repository's [Releases page](https://github.com/Livestar2025/hcrafter/releases).
 2. Unzip it into your Ashita folder, so the files land in `addons\hcrafter`. On HorizonXI the Ashita folder is `HorizonXI\Game`. You can also copy the `addons\hcrafter` folder from this repository instead.
 3. In game, type `/addon load hcrafter`.
-4. If you also run xitools, you can turn off its crafty component so you don't have two recipe windows.
+4. If you also run xitools, you can turn off its craft tool so you don't have two recipe windows.
 
 To update, unzip the new version over the old one and type `/addon reload hcrafter`. Unzipping over it keeps any `.wav` files you added to `addons\hcrafter\sounds`. Your settings, history, prices and bag snapshots are in `config\addons\hcrafter`, so they stay as they are, and settings from an older version carry over.
 
@@ -204,7 +208,7 @@ To update, unzip the new version over the old one and type `/addon reload hcraft
 ## Safety
 
 - HCrafter only reads and shows. It never starts a synth, never presses a key or a macro, never sends packets and never acts for you.
-- It reads incoming packets for synth results, skill-ups, craft levels and ranks, "You must wait longer," zoning and inventory loading. It also reads the outgoing synth request, the same way xitools crafty does.
+- It reads incoming packets for synth results, skill-ups, craft levels and ranks, "You must wait longer," zoning and inventory loading. It also reads the outgoing synth request, the same way the xitools craft tool does.
 - It reads your equipped items, your buffs and your character's status from game memory.
 - It draws item and status icons from the pictures the game already has in memory, the way Ashita's equipmon addon does.
 - It plays `.wav` files with Ashita's sound function: from its own sounds folder, and the copies it makes in `config\addons\hcrafter\sounds`. It lists its sounds folder to find any sounds you add.
@@ -226,7 +230,7 @@ To update, unzip the new version over the old one and type `/addon reload hcraft
 
 ## Credits
 
-- lin for xitools and its crafty component, which this is built on, and Aravix for continuing xitools.
+- lin for xitools and its craft tool, which this is built on, and Aravix for continuing xitools.
 - The XIUI authors for the look HCrafter follows, and for the way XIUI loads fonts, outlines text and loads icons, which HCrafter's drawing code is modeled on.
 - atom0s and the Ashita team for Ashita and the equipmon addon, whose icon loading HCrafter follows.
 - Velyn for the memory signatures used to hide windows during cutscenes and with the game interface, by way of xitools.
@@ -236,4 +240,4 @@ To update, unzip the new version over the old one and type `/addon reload hcraft
 
 ## License
 
-GPL-3.0. See [LICENSE](LICENSE). The changes from xitools crafty are listed in [CHANGELOG.md](CHANGELOG.md).
+GPL-3.0. See [LICENSE](LICENSE). The changes from the xitools craft tool are listed in [CHANGELOG.md](CHANGELOG.md).

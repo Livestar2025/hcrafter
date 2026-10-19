@@ -1,6 +1,6 @@
 -- the recipe book window: Recipes, History and Settings tabs in cool mode.
--- the recipe list and history are adapted from the crafty component of
--- xitools by lin (GPL-3.0). part of HCrafter, GPL-3.0.
+-- the recipe list and history are adapted from the craft tool of xitools
+-- by lin (GPL-3.0). part of HCrafter, GPL-3.0.
 require('common')
 local imgui = require('imgui')
 local guard = require('hc.guard')

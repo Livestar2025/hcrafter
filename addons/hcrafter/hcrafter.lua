@@ -7,7 +7,7 @@
     Copyright (C) lin (xitools, https://github.com/mousseng/xitools)
     Copyright (C) 2026 HCrafter contributors
 
-    Based on the crafty component of xitools v0.26 by lin, which also ships
+    Based on the craft tool of xitools v0.26 by lin, which also ships
     unchanged in Aravix's xitools 0.27. Changed for HCrafter starting
     2026-10-17: standalone addon, cool mode drawing in XIUI's style, game
     icons and guild emblems, sub-recipe dropdowns, HQ and success estimates,
@@ -30,9 +30,9 @@
 ]]
 
 addon.name    = 'hcrafter'
-addon.author  = 'lin (xitools crafty), HCrafter contributors'
-addon.version = '1.4.0'
-addon.desc    = 'Recipe book with sub-recipes, HQ odds, planner, skill-up ideas and fanfare. Based on xitools crafty.'
+addon.author  = 'lin (xitools), HCrafter contributors'
+addon.version = '1.4.1'
+addon.desc    = 'Recipe book with sub-recipes, HQ odds, planner, skill-up ideas and fanfare. Based on the xitools craft tool.'
 
 require('common')
 local settings = require('settings')
@@ -392,8 +392,8 @@ local function Print(message)
 end
 
 ---------------------------------------------------------------------------
--- synth tracking (from xitools crafty), craft levels and the alert after
--- your macro
+-- synth tracking (from the xitools craft tool), craft levels and the alert
+-- after your macro
 ---------------------------------------------------------------------------
 
 local function IsMe(serverId)
