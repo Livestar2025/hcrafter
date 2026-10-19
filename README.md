@@ -169,9 +169,12 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 
 ## Install
 
-1. Copy the `addons\hcrafter` folder into your Ashita `addons` folder. On HorizonXI that is `HorizonXI\Game\addons`.
-2. In game, type `/addon load hcrafter`.
-3. If you also run xitools, you can turn off its crafty component so you don't have two recipe windows.
+1. Download the newest `hcrafter-<version>.zip` from this repository's Releases page.
+2. Unzip it into your Ashita folder, so the files land in `addons\hcrafter`. On HorizonXI the Ashita folder is `HorizonXI\Game`. You can also copy the `addons\hcrafter` folder from this repository instead.
+3. In game, type `/addon load hcrafter`.
+4. If you also run xitools, you can turn off its crafty component so you don't have two recipe windows.
+
+To update, unzip the new version over the old one and type `/addon reload hcrafter`. Unzipping over it keeps any `.wav` files you added to `addons\hcrafter\sounds`. Your settings, history, prices and bag snapshots are in `config\addons\hcrafter`, so they stay as they are, and settings from an older version carry over.
 
 ## Commands
 

@@ -33,6 +33,11 @@
 - When the recipe you picked is hidden, the easiest one shown stands in.
 - Planned recipes the table no longer has leave the plan, and the planner button counts only the recipes it lists. An Auto-Repair Kit or Tension Spring planned with recipe 23001 or 23003 moves to the easiest recipe for that item, and joins its entry if that recipe is planned already. The 20 attachments stay in the plan.
 
+### Install zip
+
+- The zip now carries the GPL-3.0 license text as `addons\hcrafter\LICENSE`.
+- The README explains how to update: unzip over the old version, then `/addon reload hcrafter`.
+
 ### Tests
 
 - The harness's preview mode runs to the end again. Since 1.2.1 it stopped at the Shopping list scene.
