@@ -30,6 +30,7 @@ Drag the bottom right corner of a window to resize it. The recipe book and the R
 - A material you can craft has an arrow. Click the row and its recipe opens underneath, as deep as the chain goes. When several recipes make it, pick Recipe 1, 2 or 3.
 - Hover any item to see every place it is, each other character's last save date, and its price if you set one.
 - Right-click any item to add its recipe to the Resource Planner or to set its price.
+- Recipes from expansions after Treasures of Aht Urhgan are hidden, since HorizonXI ends there. Tick "Recipes from after ToAU" in Settings to list them.
 
 ## HQ odds
 
@@ -160,6 +161,7 @@ The History tab keeps your last 500 synths with results, skill-ups and lost mate
 - Look: Navy or Charcoal frame, opacity, size from 75 to 150 percent, text size from 80 to 130 percent, growing with Ashita's font size, game icons on or off, and the Tahoma font on or off. Size scales whole windows. Text size changes only the text. Without Tahoma or game icons, HCrafter draws its own.
 - Fanfare, the alert after your macro, a sound for each alert, one volume for all of them, and the Shopping list's opacity.
 - Hide with the map open, in cutscenes, or with the game interface hidden.
+- Recipes from after ToAU, hidden by default.
 
 ### Size on big screens
 
@@ -210,8 +212,9 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 
 ## Data and limits
 
-- The recipe table is the one xitools ships, which its authors generated from AirSkyBoat's recipe data. A recipe that differs on your server shows wrong here. Check the [HorizonXI wiki](https://horizonffxi.wiki/) when in doubt.
-- HCrafter changes the recipes HorizonXI is known to have changed: Sonic Belt needs Leathercraft 107.
+- The recipe table is built from [LandSandBoat](https://github.com/LandSandBoat/server)'s recipe list (commit 0f71d5a7, 2026-10-18), with the craft levels from [AirSkyBoat](https://github.com/AirSkyBoat/AirSkyBoat) (commit 6aaefe35) where AirSkyBoat has the recipe. LandSandBoat moved its levels to current retail in September 2026. AirSkyBoat's older levels match the HorizonXI wiki more often.
+- HorizonXI's own changes go on top: levels, crystals and materials checked against the HorizonXI wiki, automaton attachments up to ToAU yielding 1 per synth, Sonic Belt at Leathercraft 107, and the PUP recipes HorizonXI removed or that don't work (Loudspeaker II, Stabilizer II and both puppet turbans) left out.
+- `tools/regen_recipes.py` rebuilds the table, and `tools/hxi_recipe_fixes.json` lists each HorizonXI change with where it comes from. Sonic Belt's level is set in `hc/recipes.lua`. Where the wiki contradicts itself or says nothing, the AirSkyBoat level stands, so a recipe can still differ on HorizonXI. Check the [HorizonXI wiki](https://horizonffxi.wiki/) when in doubt.
 - LandSandBoat reports every HQ the same way, so HCrafter shows "HQ" rather than HQ1, HQ2 or HQ3 unless the server says which.
 - History names each synth from the crystal and materials the server lists in the result. A server that doesn't list them falls back to the synth you asked for, which can be wrong if you press a different recipe while the server lags.
 - HQ crystals are not counted toward the normal crystal of the same element.
@@ -224,7 +227,9 @@ HCrafter grows with Ashita's own font size, set by `font0.size` in your Ashita b
 - The XIUI authors for the look HCrafter follows, and for the way XIUI loads fonts, outlines text and loads icons, which HCrafter's drawing code is modeled on.
 - atom0s and the Ashita team for Ashita and the equipmon addon, whose icon loading HCrafter follows.
 - Velyn for the memory signatures used to hide windows during cutscenes and with the game interface, by way of xitools.
-- The LandSandBoat team, whose server code is the source for the synth rules and the crafting gear list.
+- The LandSandBoat team, whose server code is the source for the synth rules and the crafting gear list, and whose recipe list the table is built from.
+- The AirSkyBoat team, whose craft levels the table uses.
+- The HorizonXI wiki editors, whose pages the HorizonXI changes come from.
 
 ## License
 

@@ -877,6 +877,10 @@ if MODE == 'cycle' then
             [2] = { }, [3] = { }, [4] = { }, [5] = { }, [6] = { }, [7] = { }, [8] = { },
         }
     end
+    -- none of these is from after ToAU
+    package.preload['data.recipeEras'] = function()
+        return { }
+    end
 end
 
 -- addon globals Ashita provides
@@ -905,7 +909,7 @@ local chunk = assert(loadfile(ADDON .. '/hcrafter.lua'))
 local okLoad, errLoad = pcall(chunk)
 check(okLoad, 'hcrafter.lua loads' .. (okLoad and '' or (': ' .. tostring(errLoad))))
 if not okLoad then cleanup() os.exit(1) end
-check(addon.name == 'hcrafter' and addon.version == '1.3.1', 'addon metadata set: hcrafter 1.3.1')
+check(addon.name == 'hcrafter' and addon.version == '1.4.0', 'addon metadata set: hcrafter 1.4.0')
 
 local config = settingsStub.current
 local defaults = settingsStub.defaults
@@ -1233,7 +1237,7 @@ if MODE == 'preview' then
     config.planner.visible[1] = true
     scene('planner_plan', 1600, 1500, function()
         config.planner.entries = T{ T{ recipeId = inferno.id, synths = T{ 12 } } }
-        config.planner.make = T{ [12987] = 1, [719] = 1 }
+        config.planner.make = T{ [12987] = recipes.Options(12987)[1].id, [719] = recipes.Options(719)[1].id }
         config.planner.tab[1] = 1
     end)
     scene('planner_skillup', 1600, 1300, function()
@@ -1249,8 +1253,7 @@ if MODE == 'preview' then
         history.Clear()
         history.Add({ startTime = timeNow, item = 12987, count = 1, result = 0, recipe = recipes.byResult[12987][1].id, lost = { }, skillup = { } })
         watch.OnRequest({ crystal = 4098, ingredients = { 719, 850 } })
-        watch.OnResult(false)
-        watch.OnResult(false)
+        watch.OnAnswer(true)
         SetBags({ [0] = { [4098] = 12, [719] = 2, [850] = 2 }, [5] = { [719] = 6 }, [1] = { [4099] = 5 } })
         stock.Refresh(true)
         advance(3)
@@ -1725,7 +1728,8 @@ local key719 = 'book.optr' .. inferno.id .. '>12987>719'
 S.click = { key719 .. '.seg2' }
 f, why = frame(true)
 f, why = frame(true)
-check(st.option['r' .. inferno.id .. '>12987>719'] == 2 and hasTextLike(f, 'Makes 3 from 3 Ebony Log, 1 Bundling Twine, key item', 'hcrafter.book') ~= nil, 'picking recipe 2 shows the key item recipe')
+check(st.option['r' .. inferno.id .. '>12987>719'] == recipes.Options(719)[2].id and hasTextLike(f, 'Makes 3 from 3 Ebony Log, 1 Bundling Twine, key item', 'hcrafter.book') ~= nil,
+    'picking recipe 2 shows the key item recipe, kept by its id')
 check(hasText(f, 'key item 1986', 'hcrafter.book'), 'the key item line is shown')
 
 S.rightClick = 'book.r' .. inferno.id
@@ -1770,11 +1774,11 @@ end
 check(config.planner.entries[1].synths[1] == 12, 'the + button steps the synths to 12')
 S.click = { 'plan.mbe1>12987.seg2' }
 f, why = frame(true)
-check(why == nil and config.planner.make[12987] == 1, 'Make picked for Ebony Sabots')
+check(why == nil and config.planner.make[12987] == recipes.Options(12987)[1].id, 'Make picked for Ebony Sabots, kept by its recipe id')
 S.click = { 'plan.mbe1>12987>719.seg2' }
 f, why = frame(true)
 f, why = frame(true)
-check(why == nil and config.planner.make[719] == 1, 'Make picked for Ebony Lumber, nested under the sabots')
+check(why == nil and config.planner.make[719] == recipes.Options(719)[1].id, 'Make picked for Ebony Lumber, nested under the sabots')
 
 local function buyRow(result, id)
     for _, row in ipairs(result.buy) do if row.id == id then return row end end
@@ -1811,7 +1815,7 @@ S.click = { 'plan.oe1>12987>719.2' }
 f, why = frame(true)
 f, why = frame(true)
 result = app.PlanResult()
-check(config.planner.make[719] == 2, 'lumber switched to recipe 2')
+check(config.planner.make[719] == recipes.Options(719)[2].id, 'lumber switched to recipe 2, kept by its id')
 check(buyRow(result, 702).need == 6 and buyRow(result, 1657).need == 2 and buyRow(result, 4098).need == 14, 'recipe 2: 6 logs, 2 bundling twine, 14 wind crystals')
 check(madeRow(result, 719).synths == 2 and madeRow(result, 719).leftover == 2, 'recipe 2: 2 synths make 6, 2 left over')
 check(hasText(f, 'Key items needed', 'hcrafter.planner') and hasText(f, 'key item 1986', 'hcrafter.planner'), 'the key item for recipe 2 is listed')
@@ -2586,8 +2590,10 @@ local all = setmetatable({ }, { __index = function() return true end })
 st.open = all
 st.expanded = all
 S.hoverAll = true
-for itemId in pairs(recipes.byResult) do
-    config.planner.make[itemId] = 1
+-- every era, so recipes from after ToAU draw too
+recipes.ShowLater(true)
+for itemId, options in pairs(recipes.byResult) do
+    config.planner.make[itemId] = options[1].id
 end
 config.planner.visible[1] = true
 config.book.visible[1] = true
@@ -2642,6 +2648,236 @@ S.hoverAll = false
 st.open = { }
 st.expanded = { }
 check(#S.percentText == 0, 'no percent sign in any imgui widget text' .. (#S.percentText > 0 and (': ' .. S.percentText[1]) or ''))
+recipes.ShowLater(false)
+
+---------------------------------------------------------------------------
+print('== the recipe table: HorizonXI\'s changes and recipes from after ToAU')
+do
+    local function OptionIds(itemId)
+        local out = { }
+        for _, recipe in ipairs(recipes.Options(itemId) or { }) do out[#out + 1] = recipe.id end
+        table.sort(out)
+        return table.concat(out, ',')
+    end
+    local high = 0
+    for _, recipe in ipairs(recipes.every) do
+        for _, level in ipairs(recipe.skills) do high = math.max(high, level) end
+    end
+    check(#recipes.every == 3901 and high < 255, ('the table holds %i recipes and no 255 placeholder: highest level %i'):format(#recipes.every, high))
+    check(recipes.byId[62551] == nil and recipes.byId[62534] == nil and recipes.byId[33048] == nil and recipes.byId[33050] == nil,
+        'Loudspeaker II, Stabilizer II and both puppet turbans, which HorizonXI removed or can\'t craft, are gone')
+    check(recipes.byId[22503].count == 1 and recipes.byId[22511].count == 1 and recipes.byId[62050].count == 1 and recipes.byId[61025].count == 6,
+        'automaton attachments yield 1, and automaton oil keeps its 6')
+    local fixed = recipes.byId[22566].crystal == 4099 and recipes.byId[51517].skills[6] == 38 and recipes.byId[74523].count == 2
+        and recipes.byId[71025].skills[1] == 9 and table.concat(recipes.byId[33022].ingredients, ',') == '752,822,828'
+        and recipes.byId[20528].crystal == 4099 and recipes.byId[20528].skills[3] == 24
+    check(fixed, 'the hand fixes: Chakram\'s crystal, Bone Cudgel 38, Tonosama Rice Ball x2, Smoked Salmon Woodworking 9, Silk Hat\'s materials, Bastokan Leggings')
+    check(recipes.byId[33001].skills[3] == 15 and recipes.byId[44032].skills[5] == 107, 'Velvet Cuffs is Goldsmithing 15, and Sonic Belt stays at Leathercraft 107')
+
+    check(not recipes.showLater and not config.laterRecipes[1] and recipes.byId[1].later and recipes.Options(3653) == nil and OptionIds(17088) == '30',
+        'by default a recipe from after ToAU is known by its id but listed nowhere: ash staff ' .. OptionIds(17088))
+    local banquet = recipes.byId[1]
+    check(recipes.ByIngredients(banquet.crystal, banquet.ingredients) == banquet, 'a synth from any era is still recognized')
+    config.book.visible[1] = true
+    config.book.tab[1] = 1
+    st.filter[1] = 'banquet'
+    local f, why = frame(true)
+    check(why == nil and hasTextLike(f, 'Banquet Table', 'hcrafter.book') == nil, 'the book\'s search leaves it out')
+    config.book.tab[1] = 3
+    S.click = { 'book.later' }
+    f, why = frame(true)
+    check(why == nil and config.laterRecipes[1] == true and recipes.showLater and OptionIds(3653) == '1' and OptionIds(17088) == '29,30'
+        and hasTextLike(f, 'Recipes from after ToAU', 'hcrafter.book') ~= nil,
+        'ticking "Recipes from after ToAU" in Settings lists them: ash staff ' .. OptionIds(17088))
+    config.book.tab[1] = 1
+    st.filter[1] = 'banquet'
+    f, why = frame(true)
+    check(why == nil and hasTextLike(f, 'Banquet Table', 'hcrafter.book') ~= nil, 'and the search finds it at once')
+
+    -- settings from before 1.4.0 named the recipe to make an item with by
+    -- its place in the item's list
+    config.version = 3
+    config.planner.make = T{ [719] = 2, [17088] = 1 }
+    settingsStub.callbacks[1](config)
+    check(config.version == 4 and config.planner.make[719] == recipes.IdForOption(719, 2) and config.planner.make[17088] == recipes.IdForOption(17088, 1)
+        and recipes.showLater, 'a recipe picked by its place in the list is kept by its id from now on, and the setting holds')
+    config.planner.make = T{ [17088] = 29 }
+    check(app.Choose(17088).id == 29, 'the planner makes ash staves with the recipe from after ToAU while it is listed')
+    config.book.tab[1] = 3
+    S.click = { 'book.later' }
+    frame(false)
+    check(not config.laterRecipes[1] and not recipes.showLater and app.ChosenOption(17088) == 1 and app.Choose(17088).id == 30,
+        'hidden again, it gives way to the easiest recipe shown')
+    -- picks saved before 1.4.0 by their place in the old lists
+    config.version = 3
+    config.planner.make = T{ [653] = 2, [2262] = 2, [1702] = 0 / 0, [650] = 3 }
+    config.planner.entries = T{ T{ recipeId = 23001, synths = T{ 2 } }, T{ recipeId = 62052, synths = T{ 1 } }, T{ recipeId = 62551, synths = T{ 1 } },
+        T{ recipeId = 999999, synths = T{ 1 } }, T{ recipeId = recipes.Options(12987)[1].id, synths = T{ 1 } } }
+    local okMigrate = pcall(settingsStub.callbacks[1], config)
+    check(okMigrate and config.planner.make[653] == 21547 and recipes.byId[21547].result == 653,
+        'Mythril Ingot recipe 2 from before 1.4.0 is still the Mythril Ore recipe, though the new list has another recipe in second place')
+    check(config.planner.make[2262] == 22511 and recipes.byId[23001].result ~= 2262,
+        'a pick whose recipe id now makes another item gives way to the easiest recipe for the item: ' .. tostring(config.planner.make[2262]))
+    check(config.planner.make[1702] == 32036 and recipes.Easiest(1702).id ~= 32036,
+        'a hand-edited NaN place counts as the first recipe in the old list, with no error')
+    check(config.planner.make[650] == 20016 and recipes.byId[20020] ~= nil and recipes.byId[20020].result == 650,
+        'a hand-edited place past the end of the old list stays on its last recipe, as before 1.4.0, though the new list is longer: ' .. tostring(config.planner.make[650]))
+    local queued = { }
+    for _, entry in ipairs(config.planner.entries) do queued[#queued + 1] = tostring(entry.recipeId) end
+    check(table.concat(queued, ',') == '22511,62052,' .. recipes.Options(12987)[1].id and #app.PlanEntries() == 3
+        and recipes.MadeBefore(62052) ~= nil and recipes.Easiest(recipes.MadeBefore(62052)) == nil,
+        'the queue: an id that now makes another item moves to a recipe for its old item, an attachment whose item id was only corrected stays, and recipes the table lost go: ' .. table.concat(queued, ','))
+    -- a queued id saved as text (a hand edit) is kept as a number
+    config.planner.entries = T{ T{ recipeId = '22511', synths = T{ 1 } } }
+    settingsStub.callbacks[1](config)
+    check(config.planner.entries[1] ~= nil and config.planner.entries[1].recipeId == 22511 and #app.PlanEntries() == 1,
+        'a queued recipe id saved as text is kept as a number, so the planner lists it')
+    -- a synth count that isn't a table of one number (a hand edit)
+    config.planner.entries = T{ T{ recipeId = 22511, synths = 3 }, T{ recipeId = 22503 }, T{ recipeId = 62050, synths = T{ 0 / 0 } } }
+    settingsStub.callbacks[1](config)
+    config.book.visible[1] = true
+    config.book.tab[1] = 1
+    local fSynths, whySynths = frame(true)
+    local function QueueCounts()
+        local ok, text = pcall(function()
+            local out = { }
+            for _, entry in ipairs(app.PlanEntries()) do out[#out + 1] = entry.recipe.id .. 'x' .. entry.synths end
+            return table.concat(out, ',')
+        end)
+        return ok and text or ('error: ' .. tostring(text))
+    end
+    check(whySynths == nil and QueueCounts() == '22511x3,22503x1,62050x1',
+        'a queued synth count saved as a bare number, left out or not a number becomes a count the book and planner can draw: ' .. QueueCounts() .. (whySynths and (' ' .. whySynths) or ''))
+    -- a 1.3.x queue with both recipes of an item that moves
+    config.planner.make = T{ }
+    config.version = 3
+    config.planner.entries = T{ T{ recipeId = 22511, synths = T{ 2 } }, T{ recipeId = 23001, synths = T{ 5 } },
+        T{ recipeId = 22503, synths = T{ 1 } }, T{ recipeId = 23003, synths = T{ 1 } }, T{ recipeId = ' 22503 ', synths = T{ 9999 } } }
+    settingsStub.callbacks[1](config)
+    check(QueueCounts() == '22511x7,22503x9999',
+        'a recipe queued twice after the move becomes one entry with both counts, at most 9999: ' .. QueueCounts())
+    config.planner.entries = T{ }
+    -- with no materials in the result, an NQ of the item a recipe made
+    -- before 1.4.0 keeps the guessed recipe
+    do
+        local strobe = recipes.byId[62052]
+        history.Clear()
+        advance(100)
+        startSynth(strobe.ingredients, strobe.crystal)
+        synthEffect(0)
+        synthResult(8457)
+        local old = history.Latest()
+        advance(100)
+        startSynth(strobe.ingredients, strobe.crystal)
+        synthEffect(0)
+        synthResult(strobe.result)
+        local new = history.Latest()
+        advance(100)
+        startSynth(strobe.ingredients, strobe.crystal)
+        synthEffect(0)
+        synthResult(12987)
+        local other = history.Latest()
+        check(recipes.MadeBefore(62052) == 8457 and old ~= nil and old.item == 8457 and old.recipe == 62052 and new.item == 9032 and new.recipe == 62052
+            and other.item == 12987 and other.recipe == nil,
+            'with no materials in the result, Strobe II made as its old item id or its new one keeps its recipe, and another item drops the guess')
+        history.Clear()
+    end
+    check(recipes.ForEntry({ item = 2262, recipe = 23001 }) == recipes.byId[23001] and recipes.ForEntry({ item = 17372, recipe = '4' }) == recipes.byId[4]
+        and recipes.ForEntry({ item = 1, recipe = 999999 }) == nil,
+        'a history entry\'s recipe is found by its id, whatever item the server named')
+
+    -- an HQ names the HQ item, which isn't the recipe's result: the
+    -- Shopping list, the book's Recent and the measured rate still count it
+    do
+        local r = recipes.byId[4]
+        local skillBefore, trackerBefore, readyBefore = config.skills[1][1], config.tracker.visible[1], config.ready.enabled[1]
+        config.skills[1][1] = 1.0
+        config.ready.enabled[1] = false
+        config.tracker.visible[1] = true
+        config.book.visible[1] = true
+        config.book.tab[1] = 1
+        st.filter[1] = ''
+        history.Clear()
+        advance(100)
+        startSynth(r.ingredients, r.crystal)
+        synthEffect(2)
+        synthResult(17372, 0, { }, r.crystal, r.ingredients)
+        basic(38, 49, 1)
+        local hqEntry = history.Latest()
+        local fHQ, whyHQ = frame(true)
+        local line = hasTextLike(fHQ, 'Skill-up:', 'hcrafter.tracker')
+        local ups, chances = skillup.Measured(1, history.List(), 1.0, 10)
+        check(r.result == 17345 and hqEntry ~= nil and hqEntry.item == 17372 and hqEntry.recipe == 4 and hqEntry.result == 2
+            and whyHQ == nil and line ~= nil and hasTextLike(fHQ, 'Item17345', 'hcrafter.book') ~= nil and chances == 1 and ups == 1,
+            ('an HQ whose item is not the recipe\'s result still shows the skill-up line (%s), lists the recipe under Recent and counts for the measured rate (%d of %d)')
+                :format(tostring(line), ups, chances))
+        history.Clear()
+        config.skills[1][1], config.tracker.visible[1], config.ready.enabled[1] = skillBefore, trackerBefore, readyBefore
+    end
+
+    -- the Skill-up tab follows the switch at once
+    local laterOnly = { }
+    local inEra = { }
+    for _, recipe in ipairs(recipes.every) do
+        if recipe.later then laterOnly[recipe.result] = true else inEra[recipe.result] = true end
+    end
+    local function LaterIdeas(frameData)
+        local found = { }
+        for _, text in ipairs(drawn(frameData, 'hcrafter.planner')) do
+            local id = tonumber(tostring(text):match('^Item(%d+)'))
+            if id ~= nil and laterOnly[id] and not inEra[id] then found[#found + 1] = id end
+        end
+        return found
+    end
+    config.planner.entries = T{ }
+    config.planner.visible[1] = true
+    config.planner.tab[1] = 2
+    config.skillup.craft[1] = 1
+    config.skillup.target[1] = 0
+    local skillBefore = config.skills[1][1]
+    config.skills[1][1] = 20.0
+    config.laterRecipes[1] = true
+    recipes.ShowLater(true)
+    f, why = frame(true)
+    local shownLater = LaterIdeas(f)
+    config.book.visible[1] = true
+    config.book.tab[1] = 3
+    S.click = { 'book.later' }
+    frame(false)
+    f, why = frame(true)
+    check(#shownLater > 0 and not config.laterRecipes[1] and #LaterIdeas(f) == 0,
+        'the Skill-up tab drops ideas from after ToAU as soon as the switch is off: ' .. #shownLater .. ' before, ' .. #LaterIdeas(f) .. ' after')
+    config.skills[1][1] = skillBefore
+    config.planner.tab[1] = 1
+    config.planner.visible[1] = false
+
+    -- a desynthesis in progress is named by its main result, as before
+    local map = require('data.recipesByIngredients')
+    local dCrystal, dItem, dResult = nil, nil, nil
+    -- the lowest desynthesis key, so the run is the same each time
+    for crystal = 4096, 4103 do
+        for key, value in pairs(map[crystal] or { }) do
+            local single = tonumber(key)
+            if single ~= nil and recipes.ByIngredients(crystal, { single }) == nil and (dItem == nil or single < dItem) then
+                dCrystal, dItem, dResult = crystal, single, value.itemId
+            end
+        end
+        if dItem ~= nil then break end
+    end
+    history.Clear()
+    advance(20)
+    startSynth({ dItem }, dCrystal)
+    synthEffect(1)
+    synthResult(29695, 1, { })
+    check(dCrystal ~= nil and history.Latest() ~= nil and history.Latest().item == dResult and history.Latest().result == 1,
+        'a broken desynthesis is logged under its main result, not as a Mangled Mess: item ' .. tostring(dResult))
+    history.Clear()
+
+    config.planner.make = T{ }
+    st.filter[1] = ''
+    config.book.tab[1] = 1
+    frame(false)
+end
 
 ---------------------------------------------------------------------------
 print('== window sizes and text size')
@@ -3153,7 +3389,7 @@ print("== Ashita's font, level boxes, sounds, labels, Sonic Belt and the cap")
     config.version = 1
     config.sounds.breaks[1] = 'break.wav'
     settingsStub.callbacks[1](config)
-    check(config.version == 3 and config.sounds.breaks[1] == '', 'settings from 1.2.0 stop playing a sound on breaks')
+    check(config.version == 4 and config.sounds.breaks[1] == '', 'settings from 1.2.0 stop playing a sound on breaks')
     config.sounds.breaks[1] = 'break.wav'
     settingsStub.callbacks[1](config)
     check(config.sounds.breaks[1] == 'break.wav', 'a break sound picked after that stays')
@@ -3756,7 +3992,7 @@ print("== the game's own sounds")
     config.sounds.skillUp[1] = ''
     config.sounds.done[1] = 'chimes.wav'
     settingsStub.callbacks[1](config)
-    check(config.version == 3 and config.sounds.levelUp[1] == 'game:se043/se043006' and config.sounds.skillUp[1] == 'game:se044/se044177'
+    check(config.version == 4 and config.sounds.levelUp[1] == 'game:se043/se043006' and config.sounds.skillUp[1] == 'game:se044/se044177'
         and config.sounds.done[1] == 'chimes.wav' and config.sounds.breaks[1] == '',
         'settings from 1.2.1 move sounds still at their old default to the game\'s, keep a sound you picked, and leave breaks quiet')
     settingsStub.callbacks[1](config)
@@ -3835,6 +4071,8 @@ print("== the game's own sounds")
 end)()
 
 print('== planner against a brute-force check, every recipe, everything made')
+-- every era, so recipes from after ToAU are planned too
+recipes.ShowLater(true)
 local function makeAll(id)
     local options = recipes.Options(id)
     return options and options[1] or nil
@@ -3907,6 +4145,7 @@ for _, recipe in ipairs(recipes.all) do
     end
 end
 check(mismatches == 0, ('%i plans (every recipe, 0 and 15 percent spare) match the brute-force answer%s'):format(checked, firstMismatch and (', first mismatch recipe ' .. firstMismatch) or ''))
+recipes.ShowLater(false)
 
 ---------------------------------------------------------------------------
 print('== random packets')

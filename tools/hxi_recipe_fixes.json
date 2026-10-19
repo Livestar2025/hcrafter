@@ -1,0 +1,319 @@
+{
+ "about": "HorizonXI recipe changes for regen_recipes.py --fixes, from HCrafter's recipe check against the HorizonXI wiki. Each entry says where it comes from.",
+ "recipes": {
+  "28": {
+   "skills": {
+    "3": 0
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Woodworking/Amateur | https://horizonffxi.wiki/Goldfish_Bowl"
+  },
+  "1013": {
+   "skills": {
+    "5": 6
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Woodworking/Initiate | https://horizonffxi.wiki/Wrapped_Bow"
+  },
+  "1026": {
+   "skills": {
+    "1": 25,
+    "5": 10
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Woodworking/Initiate | https://horizonffxi.wiki/Bolt_Belt"
+  },
+  "12037": {
+   "skills": {
+    "5": 13
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Smithing/Apprentice | https://horizonffxi.wiki/Padded_Armor"
+  },
+  "12533": {
+   "skills": {
+    "2": 59
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Smithing/Journeyman | https://horizonffxi.wiki/Alumine_Moufles"
+  },
+  "12544": {
+   "count": 1,
+   "why": "armor plate: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "13042": {
+   "count": 1,
+   "why": "armor plate ii: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "20528": {
+   "crystal": 4099,
+   "ingredients": [
+    661,
+    13003
+   ],
+   "skills": {
+    "3": 24
+   },
+   "why": "pass 1, Bastokan Leggings: https://horizonffxi.wiki/Bastokan_Leggings Earth Crystal, Brass Sheet and Legionnaire's Leggings, Goldsmithing 24"
+  },
+  "21511": {
+   "skills": {
+    "3": 33
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Goldsmithing/Novice | https://horizonffxi.wiki/Spark_Spear"
+  },
+  "21525": {
+   "skills": {
+    "3": 36
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Goldsmithing/Novice | https://horizonffxi.wiki/Spark_Bilbo"
+  },
+  "22034": {
+   "count": 1,
+   "why": "scope: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22045": {
+   "count": 1,
+   "why": "heatsink: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22503": {
+   "count": 1,
+   "why": "tension spring: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22511": {
+   "count": 1,
+   "why": "auto-repair kit: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22521": {
+   "count": 1,
+   "why": "shock absorber: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22536": {
+   "count": 1,
+   "why": "volt gun: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22553": {
+   "count": 1,
+   "why": "mana tank: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22561": {
+   "count": 1,
+   "why": "accelerator: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "22566": {
+   "crystal": 4099,
+   "why": "pass 1, Chakram: https://horizonffxi.wiki/Chakram \"Earth Crystal\""
+  },
+  "22569": {
+   "count": 1,
+   "why": "mana jammer: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "23001": {
+   "count": 1,
+   "why": "auto-repair kit ii: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "23003": {
+   "count": 1,
+   "why": "tension spring ii: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "23036": {
+   "count": 1,
+   "why": "mana tank ii: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "23044": {
+   "count": 1,
+   "why": "accelerator ii: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "23047": {
+   "count": 1,
+   "why": "mana jammer ii: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "23514": {
+   "count": 1,
+   "why": "hammermill: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "24551": {
+   "skills": {
+    "2": 58
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Goldsmithing/Veteran | https://horizonffxi.wiki/Koenig_Shield"
+  },
+  "24552": {
+   "skills": {
+    "3": 99
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Goldsmithing/Veteran | https://horizonffxi.wiki/Shining_Ring"
+  },
+  "33022": {
+   "ingredients": [
+    752,
+    822,
+    828
+   ],
+   "why": "pass 1, Silk Hat: https://horizonffxi.wiki/Category:Goldsmithing/Journeyman Gold Sheet, Silver Thread, Velvet Cloth: no Silk Cloth"
+  },
+  "33546": {
+   "skills": {
+    "4": 76
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Clothcraft/Artisan | https://horizonffxi.wiki/Qiqirn_Hood"
+  },
+  "34526": {
+   "ingredients": [
+    821,
+    13881,
+    13881
+   ],
+   "why": "pass 2: https://horizonffxi.wiki/Category:Clothcraft/Veteran | https://horizonffxi.wiki/Roshi_Jinpachi"
+  },
+  "40011": {
+   "skills": {
+    "1": 1
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Woodworking/Amateur | https://horizonffxi.wiki/Cesti"
+  },
+  "44501": {
+   "skills": {
+    "4": 26
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Leathercraft/Veteran | https://horizonffxi.wiki/Bison_Wristbands"
+  },
+  "51517": {
+   "skills": {
+    "6": 38
+   },
+   "why": "pass 1, Bone Cudgel: https://horizonffxi.wiki/Bone_Cudgel \"Bonecraft (38)\""
+  },
+  "53517": {
+   "skills": {
+    "6": 76
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Bonecraft/Artisan | https://horizonffxi.wiki/Coral_Greaves"
+  },
+  "54018": {
+   "skills": {
+    "6": 86
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Bonecraft/Adept | https://horizonffxi.wiki/Dragon_Greaves"
+  },
+  "54043": {
+   "skills": {
+    "2": 42
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Bonecraft/Adept | https://horizonffxi.wiki/Dragon_Mail"
+  },
+  "62022": {
+   "count": 1,
+   "why": "strobe: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62032": {
+   "count": 1,
+   "why": "stabilizer: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62037": {
+   "skills": {
+    "7": 49
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Melt_Dagger"
+  },
+  "62043": {
+   "count": 1,
+   "why": "flashbulb: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62044": {
+   "count": 1,
+   "why": "loudspeaker: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62050": {
+   "count": 1,
+   "why": "mana converter: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62051": {
+   "count": 1,
+   "why": "mana booster: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62052": {
+   "count": 1,
+   "why": "strobe ii: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62053": {
+   "skills": {
+    "7": 50
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Alchemy/Apprentice | https://horizonffxi.wiki/Melt_Knife"
+  },
+  "62519": {
+   "count": 1,
+   "why": "inhibitor: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62522": {
+   "count": 1,
+   "why": "scanner: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62523": {
+   "count": 1,
+   "why": "pattern reader: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62524": {
+   "count": 1,
+   "why": "analyzer: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62525": {
+   "count": 1,
+   "why": "heat seeker: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62526": {
+   "count": 1,
+   "why": "damage gauge: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62527": {
+   "count": 1,
+   "why": "mana conserver: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "62528": {
+   "count": 1,
+   "why": "stealth screen: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "63022": {
+   "count": 1,
+   "why": "flame holder: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "63023": {
+   "count": 1,
+   "why": "ice maker: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "63035": {
+   "skills": {
+    "7": 66
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Hallowed_Sword"
+  },
+  "63511": {
+   "count": 1,
+   "why": "replicator: https://horizonffxi.wiki/Auto-Repair_Kit Livestar: attachment synths yield 1 on HorizonXI. The Auto-Repair Kit page: \"Yields 1 instead of 12 units\". The Tension Spring page (https://horizonffxi.wiki/Tension_Spring): \"Tension Spring x 1\"."
+  },
+  "63528": {
+   "skills": {
+    "7": 75
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Alchemy/Artisan | https://horizonffxi.wiki/Venom_Kukri"
+  },
+  "63536": {
+   "skills": {
+    "7": 76
+   },
+   "why": "pass 2: https://horizonffxi.wiki/Category:Alchemy/Artisan | https://horizonffxi.wiki/Cermet_Kukri"
+  },
+  "71025": {
+   "skills": {
+    "1": 9
+   },
+   "why": "pass 1, Smoked Salmon: https://horizonffxi.wiki/Smoked_Salmon \"Cooking (29), Woodworking (9)\""
+  },
+  "74523": {
+   "count": 2,
+   "why": "pass 1, Tonosama Rice Ball: https://horizonffxi.wiki/Tonosama_Rice_Ball \"Tonosama Rice Ball x 2\""
+  }
+ },
+ "remove": {
+  "33048": "black puppet turban, hide (not working): https://horizonffxi.wiki/A_Mind_Unbound \"The Black Puppet Turban is also listed as a level 70 Clothcraft synthesis item, but can not be crafted.\"",
+  "33050": "white puppet turban, hide (removed): https://horizonffxi.wiki/White_Puppet_Turban Horizon Changes: \"Is now Ex.\" \"No longer crafted, instead is a quest reward.\" Synthesis Recipes: \"None\".",
+  "62534": "stabilizer ii, hide (not working): https://horizonffxi.wiki/Iatrochemistry Listed as \"Stabilizer II*\" with the page note \"Synthesis does not work. Confirmed August 10, 2026.\" The Stabilizer_II page lists no recipe: auction house, Hilltroll Puppetmaster drop, Making a Mockery.",
+  "62551": "loudspeaker ii, hide (not working): https://horizonffxi.wiki/Loudspeaker_II Recipe struck through. Horizon Changes: \"Confirmed August 10, 2026\" \"Synthesis DOES NOT WORK.\""
+ }
+}

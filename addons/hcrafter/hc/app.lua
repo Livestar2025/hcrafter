@@ -140,19 +140,23 @@ function app.AddToPlan(recipe)
     return true
 end
 
+-- the place in an item's recipe list of the recipe you make it with, or
+-- nil when you buy it. the settings keep that recipe's id. when it isn't
+-- listed (a later era hidden, or gone from the table) the easiest one shown
+-- stands in.
 local function ChosenOption(itemId)
     local chosen = app.Config().planner.make[itemId]
     local options = recipes.Options(itemId)
     if chosen == nil or options == nil then
         return nil
     end
-    chosen = math.floor(tonumber(chosen) or 1)
-    if chosen < 1 then
-        chosen = 1
-    elseif chosen > #options then
-        chosen = #options
+    chosen = tonumber(chosen)
+    for number, recipe in ipairs(options) do
+        if recipe.id == chosen then
+            return number
+        end
     end
-    return chosen
+    return 1
 end
 
 app.ChosenOption = ChosenOption

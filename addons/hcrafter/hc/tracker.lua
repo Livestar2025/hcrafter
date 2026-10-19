@@ -50,10 +50,7 @@ local function LastRecipe()
     if latest == nil then
         return nil
     end
-    if latest.recipe ~= nil then
-        return recipes.byId[latest.recipe]
-    end
-    return nil
+    return recipes.ForEntry(latest)
 end
 
 local function SkillupLine(recipe)

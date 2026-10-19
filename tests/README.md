@@ -41,9 +41,10 @@ The harness makes a fresh `hcrafter_test_...` folder inside `HCRAFTER_TMP` (or y
 - HQ fanfare for T0 and T1 only by default, and the right-click menu in the game font at the size of recipe names, pushed at that size on imgui 1.92 and scaled to it on older imgui.
 - A window that stops on an error halfway: imgui stays balanced, the error prints once, the other windows still draw, and the window comes back once the error is gone. A draw that ends with something still open gets it closed.
 - Textures load a few per frame, failures fall back and are not retried every frame, and zoning drops them.
-- Every recipe drawn with every material open and every line hovered, with the Resource Planner open on every tenth.
+- Every recipe drawn with every material open and every line hovered, with the Resource Planner open on every tenth. Recipes from after ToAU are listed for this run, so all 3901 are drawn.
+- The recipe table: 3901 recipes with no 255 level, the PUP recipes HorizonXI removed left out, attachments at yield 1 and oil at 6, the hand fixes, Velvet Cuffs at Goldsmithing 15 and Sonic Belt at 107. Recipes from after ToAU known by id and recognized from their materials but listed nowhere by default, the Settings switch that lists them and the search that follows it at once, a sub-recipe picked by its place in the list before 1.4.0 kept by its id, and a picked recipe that is hidden giving way to the easiest one shown. Old picks found through the old lists (Mythril Ingot's second recipe stays the Mythril Ore one), a pick whose id now makes another item, a hand-edited NaN or a place past the end of the old list, queued ids that move, stay or go, a queued id saved as text, a synth count that isn't a number, a recipe queued twice after the move, an HQ whose item isn't the recipe's result still counted by the Shopping list, Recent and the measured rate, an NQ of a recipe's old item with no materials in the result, the Skill-up tab dropping later ideas as soon as the switch is off, and a broken desynthesis logged under its main result.
 - The Skill-up tab for every craft from 0 to 100.
-- Every recipe planned with everything made, compared with a separate brute-force answer.
+- Every recipe, from every era, planned with everything made, compared with a separate brute-force answer.
 - 3000 random packets of every size for the ids HCrafter reads: no error gets out, frames stay balanced and craft levels stay sane.
 - The `cycle` run: looping recipe data stays finite and the loop item is bought.
 

@@ -31,7 +31,7 @@
 
 addon.name    = 'hcrafter'
 addon.author  = 'lin (xitools crafty), HCrafter contributors'
-addon.version = '1.3.1'
+addon.version = '1.4.0'
 addon.desc    = 'Recipe book with sub-recipes, HQ odds, planner, skill-up ideas and fanfare. Based on xitools crafty.'
 
 require('common')
@@ -82,7 +82,7 @@ end
 local defaults = T{
     -- 2 since 1.2.1: breaks play no sound by default. 3 since 1.3.0: the
     -- game's own sounds by default
-    version = 3,
+    version = 4,
     book = T{
         visible = T{ true },
         pos = T{ 100, 100 },
@@ -129,6 +129,8 @@ local defaults = T{
     support = T{ 1 },
     autoSkills = T{ true },
     searchMaterials = T{ false },
+    -- recipes from expansions after ToAU, hidden by default
+    laterRecipes = T{ false },
     look = T{
         frame = T{ 1 },
         alpha = T{ 0.92 },
@@ -243,6 +245,70 @@ local function Prepare(cfg)
         end
         cfg.version = 3
     end
+    -- 1.4.0 keeps the recipe you make an item with by its id, so a new
+    -- recipe table or the era setting can't swap it for another. a number
+    -- saved before was a place in the item's recipe list as it was then.
+    if (tonumber(cfg.version) or 1) < 4 then
+        local make = cfg.planner and cfg.planner.make
+        if type(make) == 'table' then
+            for itemId, number in pairs(make) do
+                make[itemId] = recipes.IdForOption(itemId, number)
+            end
+        end
+        -- a queued recipe whose id now makes another item moves to the
+        -- easiest recipe for the item it made, when one is left. ids whose
+        -- old item nothing makes now (attachments whose item id was
+        -- corrected to the same-named item) stay as they are.
+        local entries = cfg.planner and cfg.planner.entries
+        if type(entries) == 'table' then
+            for _, entry in ipairs(entries) do
+                local before = type(entry) == 'table' and recipes.MadeBefore(entry.recipeId) or nil
+                local easiest = before ~= nil and recipes.Easiest(before) or nil
+                if easiest ~= nil then
+                    entry.recipeId = easiest.id
+                end
+            end
+        end
+        cfg.version = 4
+    end
+    -- queued recipes the table no longer has go. an id saved as text is
+    -- kept as a number, the way the planner looks it up. a synth count that
+    -- isn't a number from 1 to 9999 (a hand edit) is brought into that
+    -- range. a recipe queued twice, which the move above can do, becomes
+    -- one entry with both counts.
+    local entries = cfg.planner and cfg.planner.entries
+    if type(entries) == 'table' then
+        local first = { }
+        local i = 1
+        while i <= #entries do
+            local entry = entries[i]
+            local id = type(entry) == 'table' and tonumber(entry.recipeId) or nil
+            if id == nil or recipes.byId[id] == nil then
+                table.remove(entries, i)
+            else
+                local count = tonumber(type(entry.synths) == 'table' and entry.synths[1] or entry.synths)
+                if count == nil or count ~= count then
+                    count = 1
+                end
+                count = math.max(1, math.min(9999, math.floor(count)))
+                if first[id] ~= nil then
+                    local kept = first[id]
+                    kept.synths[1] = math.min(9999, kept.synths[1] + count)
+                    table.remove(entries, i)
+                else
+                    entry.recipeId = id
+                    if type(entry.synths) == 'table' then
+                        entry.synths[1] = count
+                    else
+                        entry.synths = T{ count }
+                    end
+                    first[id] = entry
+                    i = i + 1
+                end
+            end
+        end
+    end
+    recipes.ShowLater(cfg.laterRecipes[1] == true)
 end
 
 local config = settings.load(defaults)
@@ -386,9 +452,15 @@ local function OnStartSynth(e)
 
     local crystal = crystalMap[startSynth.crystal]
     local key = recipes.IngredientKey(ingredients)
-    local byCrystal = crystal and recipesByIngredients[crystal]
-    local target = (byCrystal and byCrystal[key]) or { itemId = 0, count = 0 }
     local recipe = crystal and recipes.ByIngredients(crystal, ingredients) or nil
+    local target
+    if recipe ~= nil then
+        target = { itemId = recipe.result, count = recipe.count }
+    else
+        -- not a recipe: a desynthesis, named by its main result
+        local byCrystal = crystal and recipesByIngredients[crystal]
+        target = (byCrystal and byCrystal[key]) or { itemId = 0, count = 0 }
+    end
 
     local before = { }
     if recipe ~= nil then
@@ -497,13 +569,15 @@ local function OnSynthResult(e)
 
     -- what the result says was made beats the guess from the request. with
     -- no materials listed, an NQ item that isn't the guessed recipe's
-    -- result means the guess was for another request.
+    -- result means the guess was for another request. the item the recipe
+    -- made in the table before 1.4.0 still counts as its result, in case
+    -- the server makes that one.
     local named = RecipeFromResult(synth)
     if named ~= nil then
         UseRecipe(named)
     elseif inProgSynth.result == 0 and synth.item ~= 29695 and inProgSynth.recipe ~= nil then
         local guessed = recipes.byId[inProgSynth.recipe]
-        if guessed ~= nil and guessed.result ~= synth.item then
+        if guessed ~= nil and guessed.result ~= synth.item and recipes.MadeBefore(guessed.id) ~= synth.item then
             inProgSynth.recipe = nil
             inProgSynth.estimate = nil
             inProgSynth.before = { }

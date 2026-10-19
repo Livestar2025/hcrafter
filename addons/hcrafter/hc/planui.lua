@@ -217,8 +217,8 @@ local function DrawChoices(dl, x, y, w, recipe, path, depth, parentKey)
             local selected = chosen ~= nil and 2 or 1
             local picked = ui.Segmented(dl, 'plan.mb' .. key, x + w - Px(110), y + (h - Px(22)) / 2, { 'Buy', 'Make' }, selected, { width = Px(55) })
             if picked ~= selected then
-                make[itemId] = picked == 2 and 1 or nil
-                chosen = make[itemId]
+                make[itemId] = picked == 2 and options[1].id or nil
+                chosen = make[itemId] and 1 or nil
                 app.Dirty()
             end
             if right then
@@ -245,7 +245,7 @@ local function DrawChoices(dl, x, y, w, recipe, path, depth, parentKey)
                         local label = text.Fit(OptionSummary(option), Px(12.5), false, w - (ox - x) - Px(24))
                         text.Draw(dl, label, ox + r * 2 + Px(8), y + (oh - Px(12.5)) / 2 - 1, col(number == chosen and theme.textSoft or theme.textMuted), Px(12.5))
                         if clicked then
-                            make[itemId] = number
+                            make[itemId] = option.id
                             chosen = number
                             app.Dirty()
                         end
@@ -507,7 +507,7 @@ local function Compute(craftId, target)
     local opts, ups, chances = SkillupOptions(craftId)
     local key = table.concat({
         craftId, app.Skill(craftId), target, opts.breakRule, tostring(opts.rate),
-        app.Gear(craftId), app.Support(craftId), tostring(app.Cap(craftId)),
+        app.Gear(craftId), app.Support(craftId), tostring(app.Cap(craftId)), recipes.version,
     }, '|')
     for c = 1, 8 do
         key = key .. '|' .. app.Skill(c) .. ':' .. app.Gear(c)

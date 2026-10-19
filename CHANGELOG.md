@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.4.0 (2026-10-18)
+
+### A new recipe table
+
+- The table is rebuilt from LandSandBoat's recipe list (commit 0f71d5a7, 2026-10-18) with AirSkyBoat's craft levels (commit 6aaefe35), instead of the copy xitools shipped from a 2022 AirSkyBoat snapshot.
+- No recipe needs level 255 any more, such as Velvet Cuffs at Goldsmithing 255 (it is 15). The old table had 222 of those placeholders, 221 of them from upstream rows that servers don't load.
+- 170 recipes are gone: 162 that LandSandBoat disables, 4 it no longer has, and the 4 PUP recipes below.
+- 171 live recipes the old table lacked are in. 11 are from ToAU or before, such as Bronze Bed, Cornette and Love Chocolate. The other 160 are from after ToAU, so they show only with that setting on.
+- AirSkyBoat's levels are used because LandSandBoat moved to current retail levels in September 2026. In a check of 81 disputed levels against the HorizonXI wiki, LandSandBoat's recipes with AirSkyBoat's levels matched 60, and LandSandBoat's own levels 16.
+- HorizonXI's own changes go on top, each with its source in `tools/hxi_recipe_fixes.json`: 21 levels and one material list from a second check against the wiki, Chakram's and Bastokan Leggings' crystals, Bastokan Leggings' Brass Sheet and Goldsmithing 24, Silk Hat without Silk Cloth, Tonosama Rice Ball x2, Bone Cudgel at Bonecraft 38 and Smoked Salmon at Woodworking 9.
+- Automaton attachments up to ToAU yield 1 per synth, as on HorizonXI.
+- Loudspeaker II, Stabilizer II and the white and black puppet turbans are left out. HorizonXI removed them or they can't be crafted there.
+- `tools/regen_recipes.py` rebuilds the table from the upstream SQL and the fixes file.
+- A desynthesis is still named by its main result, now from LandSandBoat's desynthesis rows.
+- 22 recipe ids now make another item id, with the same materials and crystal. 23001 and 23003 now make Auto-Repair Kit II and Tension Spring II, as their names say, where the old table had Auto-Repair Kit and Tension Spring. The other 20 are automaton attachments that now make the item of the same name under its other id. Strobe II is the only one of those 20 up to ToAU. History keeps their recipe, and if the server still makes the old item, a synth still counts as that recipe.
+
+### Recipes from after ToAU
+
+- Recipes from expansions after Treasures of Aht Urhgan are hidden by default: 1118 of the 3901. Tick "Recipes from after ToAU" in Settings, under Recipes, to list them in the book, the Resource Planner and the skill-up ideas.
+- A synth from any era is still recognized, and history keeps its recipe.
+
+### Resource Planner
+
+- The recipe you make an item with is kept by its id, so a new table or the era setting can't swap it for another. So is the recipe picked under a material in the book.
+- A recipe you picked before 1.4.0 is found from its place in the item's list as the old table had it. If that recipe is gone or now makes another item, the easiest one stands in.
+- When the recipe you picked is hidden, the easiest one shown stands in.
+- Queued recipes the table no longer has leave the queue, and the planner button counts only the recipes it lists. An Auto-Repair Kit or Tension Spring queued with recipe 23001 or 23003 moves to the easiest recipe for that item, and joins its entry if that recipe is queued already. The 20 attachments stay queued.
+
+### Tests
+
+- The harness's preview mode runs to the end again. Since 1.2.1 it stopped at the Shopping list scene.
+
 ## 1.3.1 (2026-10-18)
 
 ### Sound fixes from an independent review of 1.3.0

@@ -47,7 +47,7 @@ local function BuildNameIndex()
             table.insert(ids, id)
         end
     end
-    for _, recipe in ipairs(recipes.all) do
+    for _, recipe in ipairs(recipes.every) do
         Add(recipe.result)
         Add(recipe.crystal)
         for _, id in ipairs(recipe.ingredients) do

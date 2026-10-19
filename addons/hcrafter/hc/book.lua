@@ -36,7 +36,7 @@ local state = {
     filter = { '' },
     open = { },        -- recipe id -> true for open recipe cards
     expanded = { },    -- material path -> true
-    option = { },      -- material path -> chosen recipe number
+    option = { },      -- material path -> chosen recipe id
     lastFilter = nil,
 }
 
@@ -181,8 +181,13 @@ book.TierText = TierText
 
 local searchCache = { }
 local searchCacheSize = 0
+local searchVersion = nil
 
 local function FilterRecipes(filter, byMaterial)
+    -- the era setting changed the lists: start over
+    if searchVersion ~= recipes.version then
+        searchCache, searchCacheSize, searchVersion = { }, 0, recipes.version
+    end
     local key = (byMaterial and 'm|' or 'r|') .. filter
     local found = searchCache[key]
     if found ~= nil then
@@ -215,7 +220,7 @@ end
 local function RecentRecipes(limit)
     local list, seen = { }, { }
     for _, entry in ipairs(history.List()) do
-        local recipe = entry.recipe and recipes.byId[entry.recipe] or nil
+        local recipe = recipes.ForEntry(entry)
         if recipe == nil and entry.item ~= nil then
             local options = recipes.Options(entry.item)
             recipe = options and options[1] or nil
@@ -363,7 +368,13 @@ local function DrawSubRecipe(dl, x, y, w, itemId, options, key, path, depth)
     local innerW = w - indent - Px(12)
     y = y + Px(4)
 
-    local chosen = math.max(1, math.min(#options, state.option[key] or 1))
+    -- the pick is kept by recipe id, so the era switch can't swap it
+    local chosen = 1
+    for number, option in ipairs(options) do
+        if option.id == state.option[key] then
+            chosen = number
+        end
+    end
     if #options > 1 then
         -- "Recipe 1, Recipe 2" when they fit, plain numbers when they don't
         local labels, total = { }, 0
@@ -378,7 +389,7 @@ local function DrawSubRecipe(dl, x, y, w, itemId, options, key, path, depth)
         end
         local picked, segW, segH = ui.Segmented(dl, 'book.opt' .. key, innerX, y, labels, chosen)
         if picked ~= chosen then
-            state.option[key] = picked
+            state.option[key] = options[picked].id
             chosen = picked
         end
         y = y + segH + Px(4)
@@ -1196,6 +1207,16 @@ local function DrawSettingsTab(dl, x, y, w)
     end
     y = y + Px(30)
 
+    -- recipes from after ToAU
+    y = y + ui.Section(dl, x, y, w, 'Recipes') + Px(6)
+    changed = ui.Checkbox(dl, 'book.later', x, y, 'Recipes from after ToAU', cfg.laterRecipes)
+    if changed then
+        recipes.ShowLater(cfg.laterRecipes[1] == true)
+        app.Dirty()
+    end
+    y = y + Px(24)
+    y = y + ui.Paragraph(dl, x, y, w, 'HorizonXI ends with Treasures of Aht Urhgan, so recipes from later expansions are hidden. Tick this to list them too. Recipes HorizonXI removed are never listed.', theme.textDim, Px(11.5)) + Px(6)
+
     -- prices
     y = y + ui.Section(dl, x, y, w, 'Prices') + Px(6)
     local count = prices.Count()
@@ -1289,7 +1310,7 @@ function book.Draw()
 
     local w = ui.WindowWidth(cfg.book, book.limits)
     local clicked, titleH = ui.TitleBar(dl, 'book', x, y, w, 'HCrafter', ui.BookGlyph, {
-        { key = 'planner', draw = ui.ListGlyph, badge = #cfg.planner.entries, tip = 'Resource Planner', active = cfg.planner.visible[1] },
+        { key = 'planner', draw = ui.ListGlyph, badge = #app.PlanEntries(), tip = 'Resource Planner', active = cfg.planner.visible[1] },
         { key = 'list', draw = ui.FlagGlyph, tip = 'Shopping list', active = cfg.tracker.visible[1] },
         { key = 'close', draw = ui.CrossGlyph, tip = 'Close' },
     })
