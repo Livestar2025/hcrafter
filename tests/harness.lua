@@ -909,7 +909,10 @@ local chunk = assert(loadfile(ADDON .. '/hcrafter.lua'))
 local okLoad, errLoad = pcall(chunk)
 check(okLoad, 'hcrafter.lua loads' .. (okLoad and '' or (': ' .. tostring(errLoad))))
 if not okLoad then cleanup() os.exit(1) end
-check(addon.name == 'hcrafter' and addon.version == '1.4.0', 'addon metadata set: hcrafter 1.4.0')
+check(addon.name == 'hcrafter' and addon.version == '1.4.1', 'addon metadata set: hcrafter 1.4.1')
+check(addon.author == 'lin (xitools), HCrafter contributors'
+    and tostring(addon.desc):find('Based on the xitools craft tool.', 1, true) ~= nil,
+    'addon author and description credit xitools and its craft tool: ' .. tostring(addon.author) .. ' / ' .. tostring(addon.desc))
 
 local config = settingsStub.current
 local defaults = settingsStub.defaults

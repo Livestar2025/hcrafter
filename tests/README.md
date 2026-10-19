@@ -14,7 +14,7 @@ The harness makes a fresh `hcrafter_test_...` folder inside `HCRAFTER_TMP` (or y
 
 ## What it checks
 
-- The addon loads with no undefined globals and writes no globals.
+- The addon loads with no undefined globals and writes no globals. Its version is set, and its author and description credit xitools and its craft tool.
 - Settings tables are copies, never the defaults themselves.
 - Every frame is balanced: windows, children, popups, style colors and variables, and fonts. No two items in a window share an id. Every draw call gets finite positions and real colors. No imgui widget text carries a percent sign.
 - HQ tiers, success rates, recipes with two and three crafts, gear (including a bonus with decimals or as text), image support per craft, crafting rings, HQ odds (none for a result the rules say can't happen, or with a crafting ring on), and the image support hints.

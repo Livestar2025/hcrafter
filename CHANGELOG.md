@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.1 (2026-10-18)
+
+### Wording
+
+- The README opens with a notice that HCrafter is pending approval and not approved for HorizonXI yet. It links HorizonXI's approved addon list and says not to use HCrafter on the live server until it is listed.
+- The README, this changelog and the code comments call xitools' crafting tool the craft tool. The addon's author line says "lin (xitools)", and its description ends "Based on the xitools craft tool."
+- The install steps link the Releases page.
+
+HCrafter works the same as in 1.4.0.
+
 ## 1.4.0 (2026-10-18)
 
 ### No synth lists
@@ -187,7 +197,7 @@
 
 ## 1.0.0 (2026-10-17)
 
-First release. Built from the crafty component of xitools v0.26 by lin (GPL-3.0), which ships unchanged in Aravix's xitools 0.27. Changes from that code:
+First release. Built from the craft tool of xitools v0.26 by lin (GPL-3.0), which ships unchanged in Aravix's xitools 0.27. Changes from that code:
 
 ### Look
 
@@ -239,16 +249,16 @@ First release. Built from the crafty component of xitools v0.26 by lin (GPL-3.0)
 - Craft history in its own file per character, kept to 500 synths, with the recipe and your skill before each synth so the skill-up rate can be measured. The latest 60 show with a summary.
 - Snapshots of each character's bags so other characters can be counted. Names come from the zone-in packet. The other characters' files are read when you change character, after you zone, and every ten minutes.
 
-### Fixes to crafty behavior
+### Fixes to the craft tool's behavior
 
 - A skill-up with an empty history no longer errors.
 - An unknown crystal no longer errors.
 - A synth result that never arrives no longer blocks tracking.
 - An interrupted synth is recorded as a break that lost its materials.
 - A "You must wait longer" refusal is not recorded as a synth.
-- The synth request is read only as far as the packet goes. crafty read its inventory slot numbers 2 bytes apart, past the end of the 0x24-byte packet. A packet shorter than expected is skipped instead of raising an error.
-- The skill flags crafty read from the synth result are gone. On LandSandBoat those bytes are plain skill ids.
-- A synth is recorded as the recipe its result names, when the server lists the crystal and materials in the result. crafty used only the guess from the request, which a second request during lag could replace.
+- The synth request is read only as far as the packet goes. The craft tool read its inventory slot numbers 2 bytes apart, past the end of the 0x24-byte packet. A packet shorter than expected is skipped instead of raising an error.
+- The skill flags the craft tool read from the synth result are gone. On LandSandBoat those bytes are plain skill ids.
+- A synth is recorded as the recipe its result names, when the server lists the crystal and materials in the result. The craft tool used only the guess from the request, which a second request during lag could replace.
 - Skill-ups attach only to the synth that just ended.
 - A level shown after a skill drop is not treated as a level-up.
 - A request the server never started gives way to the next one.
